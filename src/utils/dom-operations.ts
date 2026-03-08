@@ -184,6 +184,11 @@ export function getTrackPointsFromElement(el: Element, format: 'gpx' | 'tcx'): T
   return parseTcxTrackpoints(el)
 }
 
+/** Strip "(N)" suffix from a lap name to get the base name for re-splitting. */
+function stripSplitSuffix(name: string): string {
+  return name.replace(/\s*\(\d+\)$/, '')
+}
+
 // --- DOM operations ---
 
 function findLapElement(actDoc: ActivityDocument, lapId: string): Element | null {
@@ -289,16 +294,28 @@ export function mergeLaps(actDoc: ActivityDocument, id1: string, id2: string): v
   actDoc.lapNames.delete(id2)
 }
 
-export function splitLap(actDoc: ActivityDocument, lapId: string, pointIndex: number): void {
+export function splitLap(
+  actDoc: ActivityDocument,
+  lapId: string,
+  pointIndices: number[],
+): void {
   const el = findLapElement(actDoc, lapId)
   if (!el || !el.parentNode) return
 
+  // Sort indices in ascending order and deduplicate
+  const sorted = [...new Set(pointIndices)].sort((a, b) => a - b)
+  if (sorted.length === 0) return
+
   const { sourceFormat } = actDoc
 
-  if (sourceFormat === 'gpx') {
-    splitGpxLap(actDoc, el, lapId, pointIndex)
-  } else {
-    splitTcxLap(actDoc, el, lapId, pointIndex)
+  // Split from right to left so earlier indices remain valid.
+  // Each split peels off the right portion; the original element keeps points [0..splitIdx].
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    if (sourceFormat === 'gpx') {
+      splitGpxLap(actDoc, el, lapId, sorted[i], i)
+    } else {
+      splitTcxLap(actDoc, el, lapId, sorted[i], i)
+    }
   }
 }
 
@@ -307,6 +324,7 @@ function splitGpxLap(
   el: Element,
   lapId: string,
   pointIndex: number,
+  splitOrdinal: number,
 ): void {
   const { doc } = actDoc
   const seg = el.getElementsByTagName('trkseg')[0]
@@ -323,10 +341,10 @@ function splitGpxLap(
   const newTrk = ns ? doc.createElementNS(ns, 'trk') : doc.createElement('trk')
   const newSeg = ns ? doc.createElementNS(ns, 'trkseg') : doc.createElement('trkseg')
 
-  // Name for new track
-  const origName = getLapName(actDoc, el, lapId)
+  // Determine base name (strip existing numbering suffix if re-splitting)
+  const origName = stripSplitSuffix(getLapName(actDoc, el, lapId))
   const nameEl = ns ? doc.createElementNS(ns, 'name') : doc.createElement('name')
-  nameEl.textContent = `${origName} (2)`
+  nameEl.textContent = `${origName} (${splitOrdinal + 2})`
   newTrk.appendChild(nameEl)
   newTrk.appendChild(newSeg)
 
@@ -337,8 +355,10 @@ function splitGpxLap(
     newSeg.appendChild(pt)
   }
 
-  // Rename original
-  renameLap(actDoc, lapId, `${origName} (1)`)
+  // Rename original to (1) on the last iteration (leftmost split)
+  if (splitOrdinal === 0) {
+    renameLap(actDoc, lapId, `${origName} (1)`)
+  }
 
   // Assign ID and insert after original
   const newId = nextLapId()
@@ -351,6 +371,7 @@ function splitTcxLap(
   el: Element,
   lapId: string,
   pointIndex: number,
+  splitOrdinal: number,
 ): void {
   const track = el.getElementsByTagName('Track')[0]
   if (!track) return
@@ -384,11 +405,13 @@ function splitTcxLap(
   }
 
   // Assign ID and names
-  const origName = getLapName(actDoc, el, lapId)
-  actDoc.lapNames.set(lapId, `${origName} (1)`)
+  const origName = stripSplitSuffix(getLapName(actDoc, el, lapId))
+  if (splitOrdinal === 0) {
+    actDoc.lapNames.set(lapId, `${origName} (1)`)
+  }
   const newId = nextLapId()
   newLap.setAttribute('data-lap-id', newId)
-  actDoc.lapNames.set(newId, `${origName} (2)`)
+  actDoc.lapNames.set(newId, `${origName} (${splitOrdinal + 2})`)
 
   // Recalculate summaries for both laps
   recalcTcxLapSummary(el)

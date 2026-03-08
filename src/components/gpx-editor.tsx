@@ -93,11 +93,12 @@ export function GpxEditor() {
   )
 
   const handleSplitLap = useCallback(
-    (lapId: string, pointIndex: number) => {
+    (lapId: string, pointIndices: number[]) => {
       if (!actDoc) return
-      splitLap(actDoc, lapId, pointIndex)
+      splitLap(actDoc, lapId, pointIndices)
       bumpRevision()
-      toast.success('Lap split into two')
+      const parts = pointIndices.length + 1
+      toast.success(`Lap split into ${parts} part${parts !== 1 ? 's' : ''}`)
     },
     [actDoc, bumpRevision],
   )

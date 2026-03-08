@@ -15,14 +15,30 @@ import { Label } from '~/components/ui/label'
 import { Input } from '~/components/ui/input'
 import { Scissors } from 'lucide-react'
 
+type SplitMode = 'manual' | 'equal'
+
+// Colors for segments (cycle through a palette)
+const SEGMENT_COLORS = [
+  'bg-primary/70',
+  'bg-primary/35',
+  'bg-chart-2/60',
+  'bg-chart-3/60',
+  'bg-chart-4/60',
+  'bg-chart-5/60',
+  'bg-primary/50',
+  'bg-chart-2/40',
+]
+
 interface SplitDialogProps {
   lap: LapHandle
   sourceFormat: 'gpx' | 'tcx'
-  onSplit: (pointIndex: number) => void
+  onSplit: (pointIndices: number[]) => void
   onClose: () => void
 }
 
 export function SplitDialog({ lap, sourceFormat, onSplit, onClose }: SplitDialogProps) {
+  const [mode, setMode] = useState<SplitMode>('equal')
+
   const points = useMemo(
     () => getTrackPointsFromElement(lap.element, sourceFormat),
     [lap.element, sourceFormat],
@@ -37,16 +53,62 @@ export function SplitDialog({ lap, sourceFormat, onSplit, onClose }: SplitDialog
     return cumDist
   }, [points])
 
+  const totalDistance = cumulativeDistances[cumulativeDistances.length - 1] ?? 0
+
+  // --- Manual mode state ---
   const midpoint = Math.floor(points.length / 2)
   const [splitIndex, setSplitIndex] = useState(midpoint)
-
   const maxIndex = points.length - 1
 
-  const firstDistance = cumulativeDistances[splitIndex] ?? 0
-  const secondDistance = lap.stats.distance - firstDistance
+  // --- Equal mode state ---
+  const maxParts = Math.max(2, Math.min(Math.floor(points.length / 2), 50))
+  const [numParts, setNumParts] = useState(2)
 
-  // Visual split ratio for the bar
-  const ratio = lap.stats.distance > 0 ? firstDistance / lap.stats.distance : 0.5
+  // Compute split indices for equal-distance mode
+  const equalSplitIndices = useMemo(() => {
+    if (numParts < 2 || totalDistance === 0) return []
+    const targetSegmentDist = totalDistance / numParts
+    const indices: number[] = []
+
+    for (let p = 1; p < numParts; p++) {
+      const targetDist = targetSegmentDist * p
+      // Find the trackpoint closest to this target distance
+      let bestIdx = 1
+      let bestDiff = Math.abs(cumulativeDistances[1] - targetDist)
+      for (let i = 2; i < points.length - 1; i++) {
+        const diff = Math.abs(cumulativeDistances[i] - targetDist)
+        if (diff < bestDiff) {
+          bestDiff = diff
+          bestIdx = i
+        }
+      }
+      // Avoid duplicate indices (can happen with very short segments)
+      if (indices.length === 0 || bestIdx > indices[indices.length - 1]) {
+        indices.push(bestIdx)
+      }
+    }
+
+    return indices
+  }, [numParts, totalDistance, cumulativeDistances, points.length])
+
+  const activeIndices = mode === 'manual' ? [splitIndex] : equalSplitIndices
+
+  // Compute segment stats for the preview
+  const segments = useMemo(() => {
+    const boundaries = [0, ...activeIndices, points.length - 1]
+    const result: { distance: number; pointCount: number }[] = []
+
+    for (let i = 0; i < boundaries.length - 1; i++) {
+      const start = boundaries[i]
+      const end = boundaries[i + 1]
+      const distance = cumulativeDistances[end] - cumulativeDistances[start]
+      const pointCount = end - start + 1
+      result.push({ distance, pointCount })
+    }
+
+    return result
+  }, [activeIndices, cumulativeDistances, points.length])
+  const canSplit = activeIndices.length > 0
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -54,62 +116,126 @@ export function SplitDialog({ lap, sourceFormat, onSplit, onClose }: SplitDialog
         <DialogHeader>
           <DialogTitle>Split "{lap.name}"</DialogTitle>
           <DialogDescription>
-            Choose where to split this lap ({points.length} points,{' '}
-            {formatDistance(lap.stats.distance)}).
+            {points.length} points, {formatDistance(lap.stats.distance)}.
           </DialogDescription>
         </DialogHeader>
 
+        {/* Mode toggle */}
+        <div className="flex gap-1 rounded-lg bg-muted/60 p-1">
+          <button
+            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              mode === 'equal'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+            onClick={() => setMode('equal')}
+          >
+            Equal split
+          </button>
+          <button
+            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              mode === 'manual'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+            onClick={() => setMode('manual')}
+          >
+            Manual
+          </button>
+        </div>
+
         <div className="space-y-5">
-          <div className="space-y-2">
-            <Label
-              htmlFor="split-point"
-              className="text-xs uppercase tracking-wider text-muted-foreground"
-            >
-              Split at point
-            </Label>
-            <div className="flex items-center gap-3">
-              <Input
-                id="split-point"
-                type="range"
-                min={1}
-                max={maxIndex - 1}
-                value={splitIndex}
-                onChange={(e) => setSplitIndex(Number(e.target.value))}
-                className="flex-1 accent-primary"
-              />
-              <span className="text-sm tabular-nums font-medium w-20 text-right text-muted-foreground">
-                {splitIndex} / {maxIndex}
-              </span>
+          {mode === 'manual' ? (
+            <div className="space-y-2">
+              <Label
+                htmlFor="split-point"
+                className="text-xs uppercase tracking-wider text-muted-foreground"
+              >
+                Split at point
+              </Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  id="split-point"
+                  type="range"
+                  min={1}
+                  max={maxIndex - 1}
+                  value={splitIndex}
+                  onChange={(e) => setSplitIndex(Number(e.target.value))}
+                  className="flex-1 accent-primary"
+                />
+                <span className="text-sm tabular-nums font-medium w-20 text-right text-muted-foreground">
+                  {splitIndex} / {maxIndex}
+                </span>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-2">
+              <Label
+                htmlFor="num-parts"
+                className="text-xs uppercase tracking-wider text-muted-foreground"
+              >
+                Number of equal laps
+              </Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  id="num-parts"
+                  type="range"
+                  min={2}
+                  max={maxParts}
+                  value={numParts}
+                  onChange={(e) => setNumParts(Number(e.target.value))}
+                  className="flex-1 accent-primary"
+                />
+                <span className="text-sm tabular-nums font-medium w-12 text-right text-muted-foreground">
+                  {numParts}
+                </span>
+              </div>
+              {equalSplitIndices.length < numParts - 1 && (
+                <p className="text-xs text-muted-foreground">
+                  Not enough trackpoints for {numParts} distinct segments — reduced to{' '}
+                  {equalSplitIndices.length + 1}.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Visual split bar */}
           <div className="h-2 rounded-full bg-muted overflow-hidden flex">
-            <div
-              className="h-full bg-primary/70 transition-all duration-150 rounded-l-full"
-              style={{ width: `${ratio * 100}%` }}
-            />
-            <div
-              className="h-full bg-primary/30 transition-all duration-150 rounded-r-full"
-              style={{ width: `${(1 - ratio) * 100}%` }}
-            />
+            {segments.map((seg, i) => {
+              const width = totalDistance > 0 ? (seg.distance / totalDistance) * 100 : 100 / segments.length
+              const isFirst = i === 0
+              const isLast = i === segments.length - 1
+              return (
+                <div
+                  key={i}
+                  className={`h-full transition-all duration-150 ${SEGMENT_COLORS[i % SEGMENT_COLORS.length]} ${isFirst ? 'rounded-l-full' : ''} ${isLast ? 'rounded-r-full' : ''}`}
+                  style={{ width: `${width}%` }}
+                />
+              )
+            })}
           </div>
 
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="p-3 rounded-lg bg-muted/60 border border-border/40 space-y-1">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">First half</p>
-              <p className="font-medium tabular-nums">{formatDistance(firstDistance)}</p>
-              <p className="text-xs text-muted-foreground tabular-nums">
-                {splitIndex + 1} points
-              </p>
-            </div>
-            <div className="p-3 rounded-lg bg-muted/60 border border-border/40 space-y-1">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">Second half</p>
-              <p className="font-medium tabular-nums">{formatDistance(secondDistance)}</p>
-              <p className="text-xs text-muted-foreground tabular-nums">
-                {points.length - splitIndex} points
-              </p>
-            </div>
+          {/* Segment details */}
+          <div
+            className="grid gap-2 text-sm"
+            style={{
+              gridTemplateColumns: `repeat(${Math.min(segments.length, 4)}, minmax(0, 1fr))`,
+            }}
+          >
+            {segments.map((seg, i) => (
+              <div
+                key={i}
+                className="p-2.5 rounded-lg bg-muted/60 border border-border/40 space-y-0.5"
+              >
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Part {i + 1}
+                </p>
+                <p className="font-medium tabular-nums text-sm">{formatDistance(seg.distance)}</p>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {seg.pointCount} pts
+                </p>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -117,9 +243,9 @@ export function SplitDialog({ lap, sourceFormat, onSplit, onClose }: SplitDialog
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={() => onSplit(splitIndex)}>
+          <Button onClick={() => onSplit(activeIndices)} disabled={!canSplit}>
             <Scissors className="size-3.5" />
-            Split
+            Split into {segments.length}
           </Button>
         </DialogFooter>
       </DialogContent>

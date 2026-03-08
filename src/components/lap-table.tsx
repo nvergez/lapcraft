@@ -56,7 +56,7 @@ interface LapTableProps {
   laps: LapHandle[]
   sourceFormat: 'gpx' | 'tcx'
   onDelete: (lapId: string) => void
-  onSplit: (lapId: string, pointIndex: number) => void
+  onSplit: (lapId: string, pointIndices: number[]) => void
   onMerge: (lapIds: [string, string]) => void
   onRename: (lapId: string, newName: string) => void
   onReorder: (laps: LapHandle[]) => void
@@ -607,8 +607,8 @@ export function LapTable({
         <SplitDialog
           lap={splitLap}
           sourceFormat={sourceFormat}
-          onSplit={(pointIndex) => {
-            onSplit(splitLap.id, pointIndex)
+          onSplit={(pointIndices) => {
+            onSplit(splitLap.id, pointIndices)
             setSplitLap(null)
           }}
           onClose={() => setSplitLap(null)}
