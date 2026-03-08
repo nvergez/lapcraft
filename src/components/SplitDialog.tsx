@@ -1,6 +1,8 @@
-import { useState } from 'react'
-import type { GpxLap } from '~/utils/gpx-parser'
-import { formatDistance, formatDuration } from '~/utils/gpx-parser'
+import { useState, useMemo } from 'react'
+import type { LapHandle } from '~/utils/dom-model'
+import { formatDistance } from '~/utils/gpx-parser'
+import { calculateDistance } from '~/utils/gpx-parser'
+import { getTrackPointsFromElement } from '~/utils/dom-operations'
 import {
   Dialog,
   DialogContent,
@@ -14,34 +16,27 @@ import { Label } from '~/components/ui/label'
 import { Input } from '~/components/ui/input'
 
 interface SplitDialogProps {
-  lap: GpxLap
+  lap: LapHandle
+  sourceFormat: 'gpx' | 'tcx'
   onSplit: (pointIndex: number) => void
   onClose: () => void
 }
 
-export function SplitDialog({ lap, onSplit, onClose }: SplitDialogProps) {
-  const midpoint = Math.floor(lap.points.length / 2)
+export function SplitDialog({ lap, sourceFormat, onSplit, onClose }: SplitDialogProps) {
+  const points = useMemo(
+    () => getTrackPointsFromElement(lap.element, sourceFormat),
+    [lap.element, sourceFormat],
+  )
+
+  const midpoint = Math.floor(points.length / 2)
   const [splitIndex, setSplitIndex] = useState(midpoint)
 
-  const maxIndex = lap.points.length - 1
+  const maxIndex = points.length - 1
 
-  // Preview info for the split
-  const firstHalf = lap.points.slice(0, splitIndex + 1)
-  const secondHalf = lap.points.slice(splitIndex)
+  const firstHalf = points.slice(0, splitIndex + 1)
+  const secondHalf = points.slice(splitIndex)
 
-  const firstDistance = firstHalf.reduce((sum, pt, i) => {
-    if (i === 0) return 0
-    const prev = firstHalf[i - 1]
-    const R = 6371000
-    const toRad = (d: number) => (d * Math.PI) / 180
-    const dLat = toRad(pt.lat - prev.lat)
-    const dLon = toRad(pt.lon - prev.lon)
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(prev.lat)) * Math.cos(toRad(pt.lat)) * Math.sin(dLon / 2) ** 2
-    return sum + R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  }, 0)
-
+  const firstDistance = calculateDistance(firstHalf)
   const secondDistance = lap.stats.distance - firstDistance
 
   return (
@@ -50,7 +45,7 @@ export function SplitDialog({ lap, onSplit, onClose }: SplitDialogProps) {
         <DialogHeader>
           <DialogTitle>Split "{lap.name}"</DialogTitle>
           <DialogDescription>
-            Choose where to split this lap ({lap.points.length} points, {formatDistance(lap.stats.distance)}).
+            Choose where to split this lap ({points.length} points, {formatDistance(lap.stats.distance)}).
           </DialogDescription>
         </DialogHeader>
 

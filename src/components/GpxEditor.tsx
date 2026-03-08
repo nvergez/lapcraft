@@ -1,19 +1,39 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
-import type { GpxData, GpxLap } from '~/utils/gpx-parser'
-import { parseActivityFile, exportGpx, exportTcx, splitLapAtIndex, createLap } from '~/utils/gpx-parser'
+import type { ActivityDocument } from '~/utils/dom-model'
+import type { LapHandle } from '~/utils/dom-model'
+import { exportGpx, exportTcx } from '~/utils/gpx-parser'
+import {
+  parseToDocument,
+  getLapHandles,
+  deleteLap,
+  splitLap,
+  mergeLaps,
+  renameLap,
+  reorderLaps,
+  exportOriginal,
+  getTrackPointsFromElement,
+} from '~/utils/dom-operations'
 import { GpxUpload } from './GpxUpload'
 import { LapList } from './LapList'
 import { Button } from '~/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '~/components/ui/alert-dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
-import { Download, RotateCcw, ChevronDown } from 'lucide-react'
-
-type ExportFormat = 'gpx' | 'tcx'
+import { Download, RotateCcw, ChevronDown, Info, X } from 'lucide-react'
 
 function downloadFile(content: string, filename: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType })
@@ -30,116 +50,172 @@ function sanitizeFilename(name: string): string {
 }
 
 export function GpxEditor() {
-  const [gpxData, setGpxData] = useState<GpxData | null>(null)
+  const [actDoc, setActDoc] = useState<ActivityDocument | null>(null)
+  const [revision, setRevision] = useState(0)
+  const [showGpxHint, setShowGpxHint] = useState(false)
+  const [crossFormatTarget, setCrossFormatTarget] = useState<'gpx' | 'tcx' | null>(null)
+
+  const laps = useMemo(() => {
+    if (!actDoc) return []
+    // revision is used to trigger recomputation after DOM mutations
+    void revision
+    return getLapHandles(actDoc)
+  }, [actDoc, revision])
+
+  const bumpRevision = useCallback(() => setRevision((r) => r + 1), [])
 
   const handleFileLoaded = useCallback((xmlString: string) => {
     try {
-      const data = parseActivityFile(xmlString)
-      if (data.laps.length === 0) {
+      const doc = parseToDocument(xmlString)
+      const handles = getLapHandles(doc)
+      if (handles.length === 0) {
         toast.error('No tracks/laps found in this file')
         return
       }
-      setGpxData(data)
-      toast.success(`Loaded "${data.name}" with ${data.laps.length} lap(s)`)
+      setActDoc(doc)
+      setRevision(0)
+      setShowGpxHint(doc.sourceFormat === 'gpx' && handles.length === 1)
+      toast.success(`Loaded "${doc.name}" with ${handles.length} lap(s)`)
     } catch (e) {
       toast.error(`Failed to parse file: ${e instanceof Error ? e.message : 'Unknown error'}`)
     }
   }, [])
 
   const handleDeleteLap = useCallback((lapId: string) => {
-    setGpxData((prev) => {
+    setActDoc((prev) => {
       if (!prev) return prev
-      const newLaps = prev.laps.filter((l) => l.id !== lapId)
-      return { ...prev, laps: newLaps }
+      deleteLap(prev, lapId)
+      return prev
     })
+    bumpRevision()
     toast.success('Lap deleted')
-  }, [])
+  }, [bumpRevision])
 
   const handleSplitLap = useCallback((lapId: string, pointIndex: number) => {
-    setGpxData((prev) => {
+    setActDoc((prev) => {
       if (!prev) return prev
-      const lapIndex = prev.laps.findIndex((l) => l.id === lapId)
-      if (lapIndex === -1) return prev
-      try {
-        const [first, second] = splitLapAtIndex(prev.laps[lapIndex], pointIndex)
-        const newLaps = [...prev.laps]
-        newLaps.splice(lapIndex, 1, first, second)
-        return { ...prev, laps: newLaps }
-      } catch {
-        return prev
-      }
+      splitLap(prev, lapId, pointIndex)
+      return prev
     })
+    bumpRevision()
     toast.success('Lap split into two')
-  }, [])
+  }, [bumpRevision])
 
   const handleMergeLaps = useCallback((lapIds: [string, string]) => {
-    setGpxData((prev) => {
+    setActDoc((prev) => {
       if (!prev) return prev
-      const [id1, id2] = lapIds
-      const idx1 = prev.laps.findIndex((l) => l.id === id1)
-      const idx2 = prev.laps.findIndex((l) => l.id === id2)
-      if (idx1 === -1 || idx2 === -1) return prev
-
-      const lap1 = prev.laps[Math.min(idx1, idx2)]
-      const lap2 = prev.laps[Math.max(idx1, idx2)]
-      const mergedPoints = [...lap1.points, ...lap2.points]
-      const merged = createLap(`${lap1.name} + ${lap2.name}`, mergedPoints)
-
-      const newLaps = prev.laps.filter((l) => l.id !== id1 && l.id !== id2)
-      newLaps.splice(Math.min(idx1, idx2), 0, merged)
-      return { ...prev, laps: newLaps }
+      mergeLaps(prev, lapIds[0], lapIds[1])
+      return prev
     })
+    bumpRevision()
     toast.success('Laps merged')
-  }, [])
+  }, [bumpRevision])
 
   const handleRenameLap = useCallback((lapId: string, newName: string) => {
-    setGpxData((prev) => {
+    setActDoc((prev) => {
       if (!prev) return prev
-      return {
-        ...prev,
-        laps: prev.laps.map((l) => (l.id === lapId ? { ...l, name: newName } : l)),
-      }
+      renameLap(prev, lapId, newName)
+      return prev
     })
+    bumpRevision()
+  }, [bumpRevision])
+
+  const handleReorderLaps = useCallback((reorderedLaps: LapHandle[]) => {
+    setActDoc((prev) => {
+      if (!prev) return prev
+      reorderLaps(prev, reorderedLaps.map((l) => l.id))
+      return prev
+    })
+    bumpRevision()
+  }, [bumpRevision])
+
+  const handleExportOriginal = useCallback(() => {
+    if (!actDoc) return
+    const baseName = sanitizeFilename(actDoc.name)
+    const ext = actDoc.sourceFormat
+    const content = exportOriginal(actDoc)
+    const mimeType = ext === 'tcx' ? 'application/vnd.garmin.tcx+xml' : 'application/gpx+xml'
+    downloadFile(content, `${baseName}_edited.${ext}`, mimeType)
+    toast.success(`${ext.toUpperCase()} file exported (original format)`)
+  }, [actDoc])
+
+  const doCrossFormatExport = useCallback((format: 'gpx' | 'tcx') => {
+    if (!actDoc) return
+    const baseName = sanitizeFilename(actDoc.name)
+
+    // Build GpxData-like structure for cross-format export
+    const handles = getLapHandles(actDoc)
+    const gpxData = {
+      name: actDoc.name,
+      sourceFormat: actDoc.sourceFormat,
+      laps: handles.map((h) => {
+        const points = getTrackPointsFromElement(h.element, actDoc.sourceFormat)
+        return {
+          id: h.id,
+          name: h.name,
+          points,
+          startTime: points[0]?.time,
+          endTime: points[points.length - 1]?.time,
+          stats: h.stats,
+        }
+      }),
+    }
+
+    if (format === 'tcx') {
+      downloadFile(exportTcx(gpxData), `${baseName}_edited.tcx`, 'application/vnd.garmin.tcx+xml')
+      toast.success('TCX file exported')
+    } else {
+      downloadFile(exportGpx(gpxData), `${baseName}_edited.gpx`, 'application/gpx+xml')
+      toast.success('GPX file exported')
+    }
+  }, [actDoc])
+
+  const handleExportCrossFormat = useCallback((format: 'gpx' | 'tcx') => {
+    setCrossFormatTarget(format)
   }, [])
 
-  const handleReorderLaps = useCallback((laps: GpxLap[]) => {
-    setGpxData((prev) => {
-      if (!prev) return prev
-      return { ...prev, laps }
-    })
-  }, [])
-
-  const handleExport = useCallback(
-    (format: ExportFormat) => {
-      if (!gpxData) return
-      const baseName = sanitizeFilename(gpxData.name)
-
-      if (format === 'tcx') {
-        downloadFile(exportTcx(gpxData), `${baseName}_edited.tcx`, 'application/vnd.garmin.tcx+xml')
-        toast.success('TCX file exported')
-      } else {
-        downloadFile(exportGpx(gpxData), `${baseName}_edited.gpx`, 'application/gpx+xml')
-        toast.success('GPX file exported')
-      }
-    },
-    [gpxData],
-  )
+  const handleConfirmCrossFormat = useCallback(() => {
+    if (crossFormatTarget) {
+      doCrossFormatExport(crossFormatTarget)
+    }
+    setCrossFormatTarget(null)
+  }, [crossFormatTarget, doCrossFormatExport])
 
   const handleReset = useCallback(() => {
-    setGpxData(null)
+    setActDoc(null)
+    setRevision(0)
+    setShowGpxHint(false)
   }, [])
 
-  if (!gpxData) {
+  if (!actDoc) {
     return <GpxUpload onFileLoaded={handleFileLoaded} />
   }
 
   return (
     <div className="space-y-6">
+      {showGpxHint && (
+        <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-200">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="flex-1">
+            <p className="font-medium">Only 1 lap detected</p>
+            <p className="mt-0.5 text-blue-700 dark:text-blue-300">
+              GPX files often merge all laps into a single track. If your activity has multiple laps, try importing the TCX version instead to preserve lap data.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowGpxHint(false)}
+            className="shrink-0 rounded p-0.5 hover:bg-blue-200 dark:hover:bg-blue-800"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">{gpxData.name}</h2>
+          <h2 className="text-2xl font-bold">{actDoc.name}</h2>
           <p className="text-sm text-muted-foreground">
-            {gpxData.laps.length} lap(s)
+            {laps.length} lap(s)
           </p>
         </div>
         <div className="flex gap-2">
@@ -154,25 +230,53 @@ export function GpxEditor() {
                 <ChevronDown className="ml-2 h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleExport('gpx')}>
-                Export as GPX
+              <DropdownMenuItem onClick={handleExportOriginal}>
+                Export as {actDoc.sourceFormat.toUpperCase()} (original)
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('tcx')}>
-                Export as TCX
-              </DropdownMenuItem>
+              {actDoc.sourceFormat !== 'gpx' && (
+                <DropdownMenuItem onClick={() => handleExportCrossFormat('gpx')}>
+                  Export as GPX
+                </DropdownMenuItem>
+              )}
+              {actDoc.sourceFormat !== 'tcx' && (
+                <DropdownMenuItem onClick={() => handleExportCrossFormat('tcx')}>
+                  Export as TCX
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
       <LapList
-        laps={gpxData.laps}
+        laps={laps}
+        sourceFormat={actDoc.sourceFormat}
         onDelete={handleDeleteLap}
         onSplit={handleSplitLap}
         onMerge={handleMergeLaps}
         onRename={handleRenameLap}
         onReorder={handleReorderLaps}
       />
+
+      <AlertDialog open={crossFormatTarget !== null} onOpenChange={(open) => !open && setCrossFormatTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Convert to {crossFormatTarget?.toUpperCase()}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Converting from {actDoc.sourceFormat.toUpperCase()} to {crossFormatTarget?.toUpperCase()} will lose some data that has no equivalent in the target format
+              {actDoc.sourceFormat === 'tcx' && ' (calories, lap summaries, device info, etc.)'}
+              {actDoc.sourceFormat === 'gpx' && ' (track type, description, links, etc.)'}
+              . Use "Export as {actDoc.sourceFormat.toUpperCase()} (original)" for a lossless export.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmCrossFormat}>
+              Export anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

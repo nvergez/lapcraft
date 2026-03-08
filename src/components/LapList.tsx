@@ -1,20 +1,21 @@
 import { useState } from 'react'
-import type { GpxLap } from '~/utils/gpx-parser'
+import type { LapHandle } from '~/utils/dom-model'
 import { formatDistance, formatDuration, formatPace } from '~/utils/gpx-parser'
 import { LapCard } from './LapCard'
 import { SplitDialog } from './SplitDialog'
 
 interface LapListProps {
-  laps: GpxLap[]
+  laps: LapHandle[]
+  sourceFormat: 'gpx' | 'tcx'
   onDelete: (lapId: string) => void
   onSplit: (lapId: string, pointIndex: number) => void
   onMerge: (lapIds: [string, string]) => void
   onRename: (lapId: string, newName: string) => void
-  onReorder: (laps: GpxLap[]) => void
+  onReorder: (laps: LapHandle[]) => void
 }
 
-export function LapList({ laps, onDelete, onSplit, onMerge, onRename, onReorder }: LapListProps) {
-  const [splitLap, setSplitLap] = useState<GpxLap | null>(null)
+export function LapList({ laps, sourceFormat, onDelete, onSplit, onMerge, onRename, onReorder }: LapListProps) {
+  const [splitLap, setSplitLap] = useState<LapHandle | null>(null)
 
   const totalDistance = laps.reduce((sum, l) => sum + l.stats.distance, 0)
   const totalDuration = laps.reduce((sum, l) => sum + l.stats.duration, 0)
@@ -57,6 +58,7 @@ export function LapList({ laps, onDelete, onSplit, onMerge, onRename, onReorder 
       {splitLap && (
         <SplitDialog
           lap={splitLap}
+          sourceFormat={sourceFormat}
           onSplit={(pointIndex) => {
             onSplit(splitLap.id, pointIndex)
             setSplitLap(null)

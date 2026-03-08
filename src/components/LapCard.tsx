@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { GpxLap } from '~/utils/gpx-parser'
+import type { LapHandle } from '~/utils/dom-model'
 import { formatDistance, formatDuration, formatPace, formatSpeed } from '~/utils/gpx-parser'
 import { Card, CardContent } from '~/components/ui/card'
 import { Button } from '~/components/ui/button'
@@ -37,7 +37,7 @@ import {
 } from 'lucide-react'
 
 interface LapCardProps {
-  lap: GpxLap
+  lap: LapHandle
   index: number
   isFirst: boolean
   isLast: boolean
@@ -141,7 +141,7 @@ export function LapCard({
           </div>
 
           <div className="flex gap-1 shrink-0">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onSplit} title="Split lap" disabled={lap.points.length < 3}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onSplit} title="Split lap" disabled={lap.pointCount < 3}>
               <Scissors className="h-4 w-4" />
             </Button>
             {canMergeNext && (
@@ -200,7 +200,7 @@ export function LapCard({
           {stats.elevationLoss !== undefined && (
             <Stat icon={TrendingDown} label="Elev -" value={`${stats.elevationLoss} m`} />
           )}
-          <span className="text-xs text-muted-foreground self-center">{lap.points.length} pts</span>
+          <span className="text-xs text-muted-foreground self-center">{lap.pointCount} pts</span>
         </div>
       </CardContent>
     </Card>

@@ -40,7 +40,7 @@ export interface GpxData {
 
 // --- Point parsing ---
 
-function parseGpxPoints(segment: Element): TrackPoint[] {
+export function parseGpxPoints(segment: Element): TrackPoint[] {
   const points: TrackPoint[] = []
   const trkpts = segment.getElementsByTagName('trkpt')
 
@@ -81,7 +81,7 @@ function parseGpxPoints(segment: Element): TrackPoint[] {
 }
 
 /** Search for a numeric value in extension tags, handling namespace prefixes */
-function findNumericTag(parent: Element, localNames: string[]): number | undefined {
+export function findNumericTag(parent: Element, localNames: string[]): number | undefined {
   for (const name of localNames) {
     // Try all child elements and match by local name (ignoring namespace prefix)
     const children = parent.getElementsByTagName('*')
@@ -97,7 +97,7 @@ function findNumericTag(parent: Element, localNames: string[]): number | undefin
   return undefined
 }
 
-function parseTcxTrackpoints(lapEl: Element): TrackPoint[] {
+export function parseTcxTrackpoints(lapEl: Element): TrackPoint[] {
   const points: TrackPoint[] = []
   const trackpoints = lapEl.getElementsByTagName('Trackpoint')
 
@@ -145,7 +145,7 @@ function parseTcxTrackpoints(lapEl: Element): TrackPoint[] {
 
 // --- Distance & duration ---
 
-function haversineDistance(p1: TrackPoint, p2: TrackPoint): number {
+export function haversineDistance(p1: TrackPoint, p2: TrackPoint): number {
   const R = 6371000
   const toRad = (deg: number) => (deg * Math.PI) / 180
   const dLat = toRad(p2.lat - p1.lat)
@@ -160,7 +160,7 @@ function haversineDistance(p1: TrackPoint, p2: TrackPoint): number {
   return R * c
 }
 
-function calculateDistance(points: TrackPoint[]): number {
+export function calculateDistance(points: TrackPoint[]): number {
   let total = 0
   for (let i = 1; i < points.length; i++) {
     total += haversineDistance(points[i - 1], points[i])
@@ -176,7 +176,7 @@ function calculateDuration(points: TrackPoint[]): number {
   return (new Date(last).getTime() - new Date(first).getTime()) / 1000
 }
 
-function computeStats(points: TrackPoint[], tcxLapMeta?: TcxLapMeta): LapStats {
+export function computeStats(points: TrackPoint[], tcxLapMeta?: TcxLapMeta): LapStats {
   const distance = calculateDistance(points)
   const duration = calculateDuration(points)
 
