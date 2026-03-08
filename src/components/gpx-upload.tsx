@@ -66,7 +66,8 @@ export function GpxUpload({ onFileLoaded }: GpxUploadProps) {
           Edit your activities
         </h2>
         <p className="text-muted-foreground text-base max-w-md mx-auto leading-relaxed">
-          Split, merge, rename, and reorder laps in your GPX and TCX files. Lossless round-trip editing.
+          Split, merge, rename, and reorder laps in your GPX and TCX files. Lossless round-trip
+          editing.
         </p>
       </div>
 
@@ -83,20 +84,18 @@ export function GpxUpload({ onFileLoaded }: GpxUploadProps) {
         onDragLeave={handleDragLeave}
       >
         <div className="flex flex-col items-center justify-center py-20 px-8 gap-5">
-          <div className={`rounded-full p-4 transition-all duration-300 ${
-            isDragging
-              ? 'bg-primary/15 text-primary scale-110'
-              : 'bg-warm-100 text-warm-500 group-hover:bg-primary/10 group-hover:text-primary dark:bg-warm-800 dark:text-warm-400'
-          }`}>
+          <div
+            className={`rounded-full p-4 transition-all duration-300 ${
+              isDragging
+                ? 'bg-primary/15 text-primary scale-110'
+                : 'bg-warm-100 text-warm-500 group-hover:bg-primary/10 group-hover:text-primary dark:bg-warm-800 dark:text-warm-400'
+            }`}
+          >
             <Upload className="size-7" strokeWidth={1.5} />
           </div>
           <div className="text-center space-y-1.5">
-            <p className="text-lg font-medium text-foreground">
-              Drop your file here
-            </p>
-            <p className="text-sm text-muted-foreground">
-              GPX or TCX — click to browse
-            </p>
+            <p className="text-lg font-medium text-foreground">Drop your file here</p>
+            <p className="text-sm text-muted-foreground">GPX or TCX — click to browse</p>
           </div>
         </div>
         <input

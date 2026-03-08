@@ -129,8 +129,12 @@ function computeTcxLapStats(lapEl: Element): LapStats {
 
   const avgHrEl = lapEl.getElementsByTagName('AverageHeartRateBpm')[0]
   const maxHrEl = lapEl.getElementsByTagName('MaximumHeartRateBpm')[0]
-  const avgHr = avgHrEl ? parseOptionalFloat(avgHrEl.getElementsByTagName('Value')[0]?.textContent) : undefined
-  const maxHr = maxHrEl ? parseOptionalFloat(maxHrEl.getElementsByTagName('Value')[0]?.textContent) : undefined
+  const avgHr = avgHrEl
+    ? parseOptionalFloat(avgHrEl.getElementsByTagName('Value')[0]?.textContent)
+    : undefined
+  const maxHr = maxHrEl
+    ? parseOptionalFloat(maxHrEl.getElementsByTagName('Value')[0]?.textContent)
+    : undefined
 
   // For fields not in TCX summary, compute from trackpoints
   const points = getTrackPointsFromElement(lapEl, 'tcx')
@@ -286,7 +290,7 @@ export function splitLap(actDoc: ActivityDocument, lapId: string, pointIndex: nu
   const el = findLapElement(actDoc, lapId)
   if (!el || !el.parentNode) return
 
-  const { sourceFormat, doc } = actDoc
+  const { sourceFormat } = actDoc
 
   if (sourceFormat === 'gpx') {
     splitGpxLap(actDoc, el, lapId, pointIndex)
@@ -295,7 +299,12 @@ export function splitLap(actDoc: ActivityDocument, lapId: string, pointIndex: nu
   }
 }
 
-function splitGpxLap(actDoc: ActivityDocument, el: Element, lapId: string, pointIndex: number): void {
+function splitGpxLap(
+  actDoc: ActivityDocument,
+  el: Element,
+  lapId: string,
+  pointIndex: number,
+): void {
   const { doc } = actDoc
   const seg = el.getElementsByTagName('trkseg')[0]
   if (!seg) return
@@ -334,8 +343,12 @@ function splitGpxLap(actDoc: ActivityDocument, el: Element, lapId: string, point
   el.parentNode!.insertBefore(newTrk, el.nextSibling)
 }
 
-function splitTcxLap(actDoc: ActivityDocument, el: Element, lapId: string, pointIndex: number): void {
-  const { doc } = actDoc
+function splitTcxLap(
+  actDoc: ActivityDocument,
+  el: Element,
+  lapId: string,
+  pointIndex: number,
+): void {
   const track = el.getElementsByTagName('Track')[0]
   if (!track) return
 
@@ -360,7 +373,8 @@ function splitTcxLap(actDoc: ActivityDocument, el: Element, lapId: string, point
   }
 
   // Update StartTime on new lap to boundary point's time
-  const newFirstTime = newLap.getElementsByTagName('Trackpoint')[0]
+  const newFirstTime = newLap
+    .getElementsByTagName('Trackpoint')[0]
     ?.getElementsByTagName('Time')[0]?.textContent
   if (newFirstTime) {
     newLap.setAttribute('StartTime', newFirstTime)
@@ -401,7 +415,11 @@ function recalcTcxLapSummary(lapEl: Element): void {
   // Recalc HR averages from trackpoints
   const hrs = points.map((p) => p.hr).filter((v): v is number => v !== undefined)
   if (hrs.length > 0) {
-    setOrCreateHrChild(lapEl, 'AverageHeartRateBpm', Math.round(hrs.reduce((a, b) => a + b, 0) / hrs.length))
+    setOrCreateHrChild(
+      lapEl,
+      'AverageHeartRateBpm',
+      Math.round(hrs.reduce((a, b) => a + b, 0) / hrs.length),
+    )
     setOrCreateHrChild(lapEl, 'MaximumHeartRateBpm', Math.max(...hrs))
   }
 
@@ -426,7 +444,9 @@ function setOrCreateChild(parent: Element, tagName: string, value: string): void
   }
   // Create if not found
   const ns = parent.namespaceURI
-  const el = ns ? parent.ownerDocument.createElementNS(ns, tagName) : parent.ownerDocument.createElement(tagName)
+  const el = ns
+    ? parent.ownerDocument.createElementNS(ns, tagName)
+    : parent.ownerDocument.createElement(tagName)
   el.textContent = value
   // Insert before Track element to maintain order
   const track = parent.getElementsByTagName('Track')[0]
@@ -446,8 +466,12 @@ function setOrCreateHrChild(parent: Element, tagName: string, value: number): vo
     }
   } else {
     const ns = parent.namespaceURI
-    hrEl = ns ? parent.ownerDocument.createElementNS(ns, tagName) : parent.ownerDocument.createElement(tagName)
-    const valEl = ns ? parent.ownerDocument.createElementNS(ns, 'Value') : parent.ownerDocument.createElement('Value')
+    hrEl = ns
+      ? parent.ownerDocument.createElementNS(ns, tagName)
+      : parent.ownerDocument.createElement(tagName)
+    const valEl = ns
+      ? parent.ownerDocument.createElementNS(ns, 'Value')
+      : parent.ownerDocument.createElement('Value')
     valEl.textContent = value.toString()
     hrEl.appendChild(valEl)
     const track = parent.getElementsByTagName('Track')[0]

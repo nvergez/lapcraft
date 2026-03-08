@@ -49,13 +49,17 @@ export function SplitDialog({ lap, sourceFormat, onSplit, onClose }: SplitDialog
         <DialogHeader>
           <DialogTitle>Split "{lap.name}"</DialogTitle>
           <DialogDescription>
-            Choose where to split this lap ({points.length} points, {formatDistance(lap.stats.distance)}).
+            Choose where to split this lap ({points.length} points,{' '}
+            {formatDistance(lap.stats.distance)}).
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5">
           <div className="space-y-2">
-            <Label htmlFor="split-point" className="text-xs uppercase tracking-wider text-muted-foreground">
+            <Label
+              htmlFor="split-point"
+              className="text-xs uppercase tracking-wider text-muted-foreground"
+            >
               Split at point
             </Label>
             <div className="flex items-center gap-3">
@@ -90,12 +94,16 @@ export function SplitDialog({ lap, sourceFormat, onSplit, onClose }: SplitDialog
             <div className="p-3 rounded-lg bg-muted/60 border border-border/40 space-y-1">
               <p className="text-xs uppercase tracking-wider text-muted-foreground">First half</p>
               <p className="font-medium tabular-nums">{formatDistance(firstDistance)}</p>
-              <p className="text-xs text-muted-foreground tabular-nums">{firstHalf.length} points</p>
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {firstHalf.length} points
+              </p>
             </div>
             <div className="p-3 rounded-lg bg-muted/60 border border-border/40 space-y-1">
               <p className="text-xs uppercase tracking-wider text-muted-foreground">Second half</p>
               <p className="font-medium tabular-nums">{formatDistance(secondDistance)}</p>
-              <p className="text-xs text-muted-foreground tabular-nums">{secondHalf.length} points</p>
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {secondHalf.length} points
+              </p>
             </div>
           </div>
         </div>

@@ -11,13 +11,13 @@ export interface TrackPoint {
 }
 
 export interface LapStats {
-  distance: number       // meters
-  duration: number       // seconds
+  distance: number // meters
+  duration: number // seconds
   avgHr?: number
   maxHr?: number
   avgCadence?: number
   avgPower?: number
-  maxSpeed?: number      // m/s
+  maxSpeed?: number // m/s
   calories?: number
   elevationGain?: number
   elevationLoss?: number
@@ -82,16 +82,14 @@ export function parseGpxPoints(segment: Element): TrackPoint[] {
 
 /** Search for a numeric value in extension tags, handling namespace prefixes */
 export function findNumericTag(parent: Element, localNames: string[]): number | undefined {
-  for (const name of localNames) {
-    // Try all child elements and match by local name (ignoring namespace prefix)
-    const children = parent.getElementsByTagName('*')
-    for (let i = 0; i < children.length; i++) {
-      const el = children[i]
-      const localName = el.localName || el.tagName.split(':').pop()
-      if (localName && localNames.includes(localName)) {
-        const val = parseFloat(el.textContent || '')
-        if (!isNaN(val)) return val
-      }
+  // Try all child elements and match by local name (ignoring namespace prefix)
+  const children = parent.getElementsByTagName('*')
+  for (let i = 0; i < children.length; i++) {
+    const el = children[i]
+    const localName = el.localName || el.tagName.split(':').pop()
+    if (localName && localNames.includes(localName)) {
+      const val = parseFloat(el.textContent || '')
+      if (!isNaN(val)) return val
     }
   }
   return undefined
@@ -133,7 +131,9 @@ export function parseTcxTrackpoints(lapEl: Element): TrackPoint[] {
       lon,
       ele: altEl ? parseFloat(altEl.textContent || '0') : undefined,
       time: timeEl ? timeEl.textContent || undefined : undefined,
-      hr: hrEl ? parseFloat(hrEl.getElementsByTagName('Value')[0]?.textContent || '') || undefined : undefined,
+      hr: hrEl
+        ? parseFloat(hrEl.getElementsByTagName('Value')[0]?.textContent || '') || undefined
+        : undefined,
       cadence,
       power,
       speed,
@@ -152,10 +152,7 @@ export function haversineDistance(p1: TrackPoint, p2: TrackPoint): number {
   const dLon = toRad(p2.lon - p1.lon)
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(p1.lat)) *
-      Math.cos(toRad(p2.lat)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2)
+    Math.cos(toRad(p1.lat)) * Math.cos(toRad(p2.lat)) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   return R * c
 }
@@ -275,9 +272,10 @@ export function parseGpx(xmlString: string): GpxData {
       const points = parseGpxPoints(segments[s])
       if (points.length > 0) {
         const trackName = track.querySelector('name')?.textContent
-        const lapName = segments.length > 1
-          ? `${trackName || 'Track'} - Segment ${s + 1}`
-          : trackName || `Track ${t + 1}`
+        const lapName =
+          segments.length > 1
+            ? `${trackName || 'Track'} - Segment ${s + 1}`
+            : trackName || `Track ${t + 1}`
         laps.push(createLap(lapName, points))
       }
     }
@@ -320,8 +318,12 @@ export function parseTcx(xmlString: string): GpxData {
 
     const tcxMeta: TcxLapMeta = {
       calories: calories !== undefined ? Math.round(calories) : undefined,
-      avgHr: avgHrEl ? parseOptionalFloat(avgHrEl.getElementsByTagName('Value')[0]?.textContent) : undefined,
-      maxHr: maxHrEl ? parseOptionalFloat(maxHrEl.getElementsByTagName('Value')[0]?.textContent) : undefined,
+      avgHr: avgHrEl
+        ? parseOptionalFloat(avgHrEl.getElementsByTagName('Value')[0]?.textContent)
+        : undefined,
+      maxHr: maxHrEl
+        ? parseOptionalFloat(maxHrEl.getElementsByTagName('Value')[0]?.textContent)
+        : undefined,
       maxSpeed: parseOptionalFloat(maxSpeedEl?.textContent),
     }
 
@@ -347,10 +349,7 @@ export function splitLapAtIndex(lap: GpxLap, pointIndex: number): [GpxLap, GpxLa
   const firstPoints = lap.points.slice(0, pointIndex + 1)
   const secondPoints = lap.points.slice(pointIndex)
 
-  return [
-    createLap(`${lap.name} (1)`, firstPoints),
-    createLap(`${lap.name} (2)`, secondPoints),
-  ]
+  return [createLap(`${lap.name} (1)`, firstPoints), createLap(`${lap.name} (2)`, secondPoints)]
 }
 
 // --- Export ---
@@ -379,7 +378,12 @@ export function exportGpx(gpxData: GpxData): string {
       if (pt.time) {
         lines.push(`        <time>${pt.time}</time>`)
       }
-      if (pt.hr !== undefined || pt.cadence !== undefined || pt.power !== undefined || pt.temperature !== undefined) {
+      if (
+        pt.hr !== undefined ||
+        pt.cadence !== undefined ||
+        pt.power !== undefined ||
+        pt.temperature !== undefined
+      ) {
         lines.push('        <extensions>')
         if (pt.power !== undefined) {
           lines.push(`          <power>${pt.power}</power>`)
@@ -387,8 +391,10 @@ export function exportGpx(gpxData: GpxData): string {
         if (pt.hr !== undefined || pt.cadence !== undefined || pt.temperature !== undefined) {
           lines.push('          <gpxtpx:TrackPointExtension>')
           if (pt.hr !== undefined) lines.push(`            <gpxtpx:hr>${pt.hr}</gpxtpx:hr>`)
-          if (pt.cadence !== undefined) lines.push(`            <gpxtpx:cad>${pt.cadence}</gpxtpx:cad>`)
-          if (pt.temperature !== undefined) lines.push(`            <gpxtpx:atemp>${pt.temperature}</gpxtpx:atemp>`)
+          if (pt.cadence !== undefined)
+            lines.push(`            <gpxtpx:cad>${pt.cadence}</gpxtpx:cad>`)
+          if (pt.temperature !== undefined)
+            lines.push(`            <gpxtpx:atemp>${pt.temperature}</gpxtpx:atemp>`)
           lines.push('          </gpxtpx:TrackPointExtension>')
         }
         lines.push('        </extensions>')
@@ -432,7 +438,9 @@ export function exportTcx(gpxData: GpxData): string {
       lines.push(`        <Calories>${stats.calories}</Calories>`)
     }
     if (stats.avgHr !== undefined) {
-      lines.push(`        <AverageHeartRateBpm><Value>${Math.round(stats.avgHr)}</Value></AverageHeartRateBpm>`)
+      lines.push(
+        `        <AverageHeartRateBpm><Value>${Math.round(stats.avgHr)}</Value></AverageHeartRateBpm>`,
+      )
     }
     if (stats.maxHr !== undefined) {
       lines.push(`        <MaximumHeartRateBpm><Value>${stats.maxHr}</Value></MaximumHeartRateBpm>`)

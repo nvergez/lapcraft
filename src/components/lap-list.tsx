@@ -14,7 +14,15 @@ interface LapListProps {
   onReorder: (laps: LapHandle[]) => void
 }
 
-export function LapList({ laps, sourceFormat, onDelete, onSplit, onMerge, onRename, onReorder }: LapListProps) {
+export function LapList({
+  laps,
+  sourceFormat,
+  onDelete,
+  onSplit,
+  onMerge,
+  onRename,
+  onReorder,
+}: LapListProps) {
   const [splitLap, setSplitLap] = useState<LapHandle | null>(null)
 
   const totalDistance = laps.reduce((sum, l) => sum + l.stats.distance, 0)
@@ -31,9 +39,18 @@ export function LapList({ laps, sourceFormat, onDelete, onSplit, onMerge, onRena
   return (
     <div className="space-y-4">
       <div className="flex gap-6 text-sm text-muted-foreground">
-        <span>Total distance: <strong className="text-foreground">{formatDistance(totalDistance)}</strong></span>
-        <span>Total duration: <strong className="text-foreground">{formatDuration(totalDuration)}</strong></span>
-        <span>Avg pace: <strong className="text-foreground">{formatPace(totalDistance, totalDuration)}</strong></span>
+        <span>
+          Total distance:{' '}
+          <strong className="text-foreground">{formatDistance(totalDistance)}</strong>
+        </span>
+        <span>
+          Total duration:{' '}
+          <strong className="text-foreground">{formatDuration(totalDuration)}</strong>
+        </span>
+        <span>
+          Avg pace:{' '}
+          <strong className="text-foreground">{formatPace(totalDistance, totalDuration)}</strong>
+        </span>
       </div>
 
       <div className="space-y-3">

@@ -49,7 +49,15 @@ interface LapCardProps {
   onMoveDown: () => void
 }
 
-function Stat({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+function Stat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ElementType
+  label: string
+  value: string
+}) {
   return (
     <div className="flex items-center gap-1.5 text-sm">
       <Icon className="size-3.5 text-warm-400 shrink-0" strokeWidth={1.5} />
@@ -102,7 +110,9 @@ export function LapCard({
             </Button>
           </div>
 
-          <span className="text-xs tabular-nums text-muted-foreground font-medium shrink-0 w-5 text-center">{index + 1}</span>
+          <span className="text-xs tabular-nums text-muted-foreground font-medium shrink-0 w-5 text-center">
+            {index + 1}
+          </span>
 
           <div className="flex-1 min-w-0">
             {isEditing ? (
@@ -130,7 +140,10 @@ export function LapCard({
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  onClick={() => { setEditName(lap.name); setIsEditing(true) }}
+                  onClick={() => {
+                    setEditName(lap.name)
+                    setIsEditing(true)
+                  }}
                 >
                   <Pencil className="size-2.5" />
                 </Button>
@@ -139,23 +152,44 @@ export function LapCard({
           </div>
 
           <div className="flex gap-0.5 shrink-0">
-            <Button variant="ghost" size="icon-xs" onClick={onSplit} title="Split lap" disabled={lap.pointCount < 3}>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={onSplit}
+              title="Split lap"
+              disabled={lap.pointCount < 3}
+            >
               <Scissors className="size-3.5" />
             </Button>
             {canMergeNext && (
-              <Button variant="ghost" size="icon-xs" onClick={onMergeNext} title="Merge with next lap">
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                onClick={onMergeNext}
+                title="Merge with next lap"
+              >
                 <Merge className="size-3.5" />
               </Button>
             )}
             <AlertDialog>
-              <AlertDialogTrigger render={<Button variant="ghost" size="icon-xs" className="text-destructive hover:text-destructive" title="Delete lap" />}>
-                  <Trash2 className="size-3.5" />
+              <AlertDialogTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    className="text-destructive hover:text-destructive"
+                    title="Delete lap"
+                  />
+                }
+              >
+                <Trash2 className="size-3.5" />
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete lap?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will remove "{lap.name}" ({formatDistance(stats.distance)}). This action cannot be undone.
+                    This will remove "{lap.name}" ({formatDistance(stats.distance)}). This action
+                    cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -198,7 +232,9 @@ export function LapCard({
           {stats.elevationLoss !== undefined && (
             <Stat icon={TrendingDown} label="Elev -" value={`${stats.elevationLoss} m`} />
           )}
-          <span className="text-xs text-muted-foreground self-center tabular-nums">{lap.pointCount} pts</span>
+          <span className="text-xs text-muted-foreground self-center tabular-nums">
+            {lap.pointCount} pts
+          </span>
         </div>
       </CardContent>
     </Card>

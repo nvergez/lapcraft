@@ -29,9 +29,9 @@ The dev server starts at `http://localhost:3000`.
 | Command        | Description                                     |
 | -------------- | ----------------------------------------------- |
 | `pnpm dev`     | Start the Vite dev server                       |
-| `pnpm build`   | Production build (Vite + TypeScript type check)  |
-| `pnpm preview` | Preview the production build locally             |
-| `pnpm start`   | Run the production server                        |
+| `pnpm build`   | Production build (Vite + TypeScript type check) |
+| `pnpm preview` | Preview the production build locally            |
+| `pnpm start`   | Run the production server                       |
 
 ## Tech Stack
 
