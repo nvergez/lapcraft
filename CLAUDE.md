@@ -1,0 +1,42 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Commands
+
+```bash
+pnpm dev          # Start dev server on port 3000
+pnpm build        # Build for production (vite build + tsc --noEmit)
+pnpm preview      # Preview production build
+pnpm start        # Run production server (.output/server/index.mjs)
+```
+
+No test framework is configured.
+
+## Architecture
+
+GPX/TCX file editor built with TanStack Start (SSR via Nitro) + React 19 + TypeScript (strict).
+
+### DOM-First Lossless Editing
+
+The core design decision: the uploaded XML file is kept as a live DOM `Document` throughout the editing session. All mutations (delete, split, merge, rename, reorder laps) operate directly on this DOM. This preserves the original XML structure and unknown elements/attributes on export, enabling lossless round-trip editing. A `revision` counter bumps after each mutation to trigger React recomputation of derived state via `useMemo`.
+
+Cross-format export (GPX→TCX or TCX→GPX) is lossy and requires user confirmation.
+
+### Key Files
+
+- `src/utils/dom-model.ts` — `ActivityDocument` (DOM wrapper) and `LapHandle` (UI lap representation) interfaces
+- `src/utils/dom-operations.ts` — All DOM mutations: `parseToDocument()`, `deleteLap()`, `splitLap()`, `mergeLaps()`, `reorderLaps()`, `exportOriginal()`
+- `src/utils/gpx-parser.ts` — GPX/TCX parsing to data structures, stats computation (haversine), cross-format export (`exportGpx()`, `exportTcx()`)
+- `src/components/GpxEditor.tsx` — Main state container; owns `ActivityDocument` and all mutation callbacks
+- `src/components/LapCard.tsx` — Individual lap display with inline name editing and action menu
+- `src/components/SplitDialog.tsx` — Interactive split point selector
+
+### Stack
+
+- **Routing**: TanStack Router (file-based, `src/routes/`); route tree auto-generated as `routeTree.gen.ts`
+- **UI**: shadcn components (`src/components/ui/`) built on `@base-ui/react` (headless), not Radix
+- **Styling**: TailwindCSS v4 with oklch CSS variables for light/dark themes (`src/styles/app.css`)
+- **Path alias**: `~/*` maps to `src/*`
+- **Package manager**: pnpm (workspace setup)
+- **Node**: v24 (`.nvmrc`)

@@ -15,7 +15,7 @@ import {
   getTrackPointsFromElement,
 } from '~/utils/dom-operations'
 import { GpxUpload } from './GpxUpload'
-import { LapList } from './LapList'
+import { LapTable } from './LapTable'
 import { Button } from '~/components/ui/button'
 import {
   AlertDialog,
@@ -82,52 +82,37 @@ export function GpxEditor() {
   }, [])
 
   const handleDeleteLap = useCallback((lapId: string) => {
-    setActDoc((prev) => {
-      if (!prev) return prev
-      deleteLap(prev, lapId)
-      return prev
-    })
+    if (!actDoc) return
+    deleteLap(actDoc, lapId)
     bumpRevision()
     toast.success('Lap deleted')
-  }, [bumpRevision])
+  }, [actDoc, bumpRevision])
 
   const handleSplitLap = useCallback((lapId: string, pointIndex: number) => {
-    setActDoc((prev) => {
-      if (!prev) return prev
-      splitLap(prev, lapId, pointIndex)
-      return prev
-    })
+    if (!actDoc) return
+    splitLap(actDoc, lapId, pointIndex)
     bumpRevision()
     toast.success('Lap split into two')
-  }, [bumpRevision])
+  }, [actDoc, bumpRevision])
 
   const handleMergeLaps = useCallback((lapIds: [string, string]) => {
-    setActDoc((prev) => {
-      if (!prev) return prev
-      mergeLaps(prev, lapIds[0], lapIds[1])
-      return prev
-    })
+    if (!actDoc) return
+    mergeLaps(actDoc, lapIds[0], lapIds[1])
     bumpRevision()
     toast.success('Laps merged')
-  }, [bumpRevision])
+  }, [actDoc, bumpRevision])
 
   const handleRenameLap = useCallback((lapId: string, newName: string) => {
-    setActDoc((prev) => {
-      if (!prev) return prev
-      renameLap(prev, lapId, newName)
-      return prev
-    })
+    if (!actDoc) return
+    renameLap(actDoc, lapId, newName)
     bumpRevision()
-  }, [bumpRevision])
+  }, [actDoc, bumpRevision])
 
   const handleReorderLaps = useCallback((reorderedLaps: LapHandle[]) => {
-    setActDoc((prev) => {
-      if (!prev) return prev
-      reorderLaps(prev, reorderedLaps.map((l) => l.id))
-      return prev
-    })
+    if (!actDoc) return
+    reorderLaps(actDoc, reorderedLaps.map((l) => l.id))
     bumpRevision()
-  }, [bumpRevision])
+  }, [actDoc, bumpRevision])
 
   const handleExportOriginal = useCallback(() => {
     if (!actDoc) return
@@ -248,7 +233,7 @@ export function GpxEditor() {
         </div>
       </div>
 
-      <LapList
+      <LapTable
         laps={laps}
         sourceFormat={actDoc.sourceFormat}
         onDelete={handleDeleteLap}
