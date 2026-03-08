@@ -17,6 +17,7 @@ import {
 } from '~/utils/dom-operations'
 import { GpxUpload } from './gpx-upload'
 import { LapTable } from './lap-table'
+import { ActivityMap } from './activity-map'
 import { Button } from '~/components/ui/button'
 import {
   AlertDialog,
@@ -57,6 +58,7 @@ export function GpxEditor() {
   const undoManagerRef = useRef(new UndoManager())
   const [showGpxHint, setShowGpxHint] = useState(false)
   const [crossFormatTarget, setCrossFormatTarget] = useState<'gpx' | 'tcx' | null>(null)
+  const [hoveredLapId, setHoveredLapId] = useState<string | null>(null)
 
   const laps = useMemo(() => {
     if (!actDoc) return []
@@ -327,6 +329,14 @@ export function GpxEditor() {
         </div>
       </div>
 
+      <ActivityMap
+        laps={laps}
+        sourceFormat={actDoc.sourceFormat}
+        revision={revision}
+        hoveredLapId={hoveredLapId}
+        onHoverLap={setHoveredLapId}
+      />
+
       <LapTable
         laps={laps}
         sourceFormat={actDoc.sourceFormat}
@@ -335,6 +345,8 @@ export function GpxEditor() {
         onMerge={handleMergeLaps}
         onRename={handleRenameLap}
         onReorder={handleReorderLaps}
+        hoveredLapId={hoveredLapId}
+        onHoverLap={setHoveredLapId}
       />
 
       <AlertDialog

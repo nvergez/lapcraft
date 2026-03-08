@@ -1,6 +1,7 @@
 @import 'tailwindcss' source('../');
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
+@import 'leaflet/dist/leaflet.css';
 @import '@fontsource-variable/dm-sans';
 @import '@fontsource/dm-serif-display';
 
@@ -171,4 +172,14 @@
 
 .dark .grain::before {
   opacity: 0.04;
+}
+
+/* Fix Tailwind preflight breaking Leaflet tile images */
+.leaflet-container img.leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
+}
+
+.leaflet-container .leaflet-control-attribution {
+  font-size: 10px;
 }

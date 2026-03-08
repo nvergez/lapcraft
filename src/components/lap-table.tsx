@@ -60,6 +60,8 @@ interface LapTableProps {
   onMerge: (lapIds: [string, string]) => void
   onRename: (lapId: string, newName: string) => void
   onReorder: (laps: LapHandle[]) => void
+  hoveredLapId?: string | null
+  onHoverLap?: (lapId: string | null) => void
 }
 
 function SortableHeader({
@@ -95,6 +97,8 @@ export function LapTable({
   onMerge,
   onRename,
   onReorder,
+  hoveredLapId,
+  onHoverLap,
 }: LapTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [editingLapId, setEditingLapId] = useState<string | null>(null)
@@ -483,10 +487,14 @@ export function LapTable({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.map((row) => (
+            {table.getRowModel().rows.map((row) => {
+              const isHovered = hoveredLapId === row.original.id
+              return (
               <TableRow
                 key={row.id}
-                className="group border-border/40 hover:bg-warm-50/50 dark:hover:bg-warm-800/20 transition-colors"
+                className={`group border-border/40 transition-colors ${isHovered ? 'bg-primary/5 dark:bg-primary/10' : 'hover:bg-warm-50/50 dark:hover:bg-warm-800/20'}`}
+                onMouseEnter={() => onHoverLap?.(row.original.id)}
+                onMouseLeave={() => onHoverLap?.(null)}
               >
                 {row.getVisibleCells().map((cell) => {
                   const align = (cell.column.columnDef.meta as { align?: string })?.align ?? 'left'
@@ -506,7 +514,8 @@ export function LapTable({
                   )
                 })}
               </TableRow>
-            ))}
+              )
+            })}
           </TableBody>
           <TableFooter>
             <TableRow className="bg-warm-50/50 dark:bg-warm-800/10 hover:bg-warm-50/50 dark:hover:bg-warm-800/10">
