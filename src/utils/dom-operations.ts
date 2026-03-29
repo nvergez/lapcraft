@@ -1,11 +1,6 @@
 import type { ActivityDocument, LapHandle } from './dom-model'
 import type { TrackPoint, LapStats } from './gpx-parser'
-import {
-  computeStats,
-  parseGpxPoints,
-  parseOptionalFloat,
-  parseTcxTrackpoints,
-} from './gpx-parser'
+import { computeStats, parseGpxPoints, parseOptionalFloat, parseTcxTrackpoints } from './gpx-parser'
 
 // --- Parsing ---
 
@@ -229,6 +224,32 @@ export function renameLap(actDoc: ActivityDocument, lapId: string, name: string)
   }
 }
 
+export function renameActivity(actDoc: ActivityDocument, name: string): void {
+  actDoc.name = name
+  if (actDoc.sourceFormat === 'gpx') {
+    // Update <trk><name> or <metadata><name>
+    const nameEl =
+      actDoc.doc.querySelector('trk > name') || actDoc.doc.querySelector('metadata > name')
+    if (nameEl) {
+      nameEl.textContent = name
+    }
+  } else {
+    // TCX: update <Activity><Notes>
+    const activity = actDoc.doc.getElementsByTagName('Activity')[0]
+    if (activity) {
+      let notes = activity.getElementsByTagName('Notes')[0]
+      if (notes) {
+        notes.textContent = name
+      } else {
+        const ns = activity.namespaceURI
+        notes = ns ? actDoc.doc.createElementNS(ns, 'Notes') : actDoc.doc.createElement('Notes')
+        notes.textContent = name
+        activity.insertBefore(notes, activity.firstChild)
+      }
+    }
+  }
+}
+
 export function reorderLaps(actDoc: ActivityDocument, orderedIds: string[]): void {
   const elements = getLapElements(actDoc)
   const byId = new Map(elements.map((el) => [getLapId(el), el]))
@@ -294,11 +315,7 @@ export function mergeLaps(actDoc: ActivityDocument, id1: string, id2: string): v
   actDoc.lapNames.delete(id2)
 }
 
-export function splitLap(
-  actDoc: ActivityDocument,
-  lapId: string,
-  pointIndices: number[],
-): void {
+export function splitLap(actDoc: ActivityDocument, lapId: string, pointIndices: number[]): void {
   const el = findLapElement(actDoc, lapId)
   if (!el || !el.parentNode) return
 

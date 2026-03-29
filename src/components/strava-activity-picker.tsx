@@ -18,7 +18,7 @@ import { formatDistance, formatDuration } from '~/utils/gpx-parser'
 interface StravaActivityPickerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onFileLoaded: (xmlString: string) => void
+  onFileLoaded: (xmlString: string, stravaActivityId?: number) => void
 }
 
 interface ActivitySummary {
@@ -110,9 +110,8 @@ export function StravaActivityPicker({
       try {
         const data = await fetchStreams({ activityId: activity.id })
         const tcxString = stravaToTcx(data)
-        onFileLoaded(tcxString)
+        onFileLoaded(tcxString, activity.id)
         onOpenChange(false)
-        toast.success(`Loaded "${activity.name}" from Strava`)
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Failed to import activity')
       } finally {

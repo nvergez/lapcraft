@@ -8,9 +8,10 @@ import { getStravaAuthUrl, StravaLogo } from '~/utils/strava'
 
 interface GpxUploadProps {
   onFileLoaded: (xmlString: string) => void
+  onStravaFileLoaded?: (xmlString: string, stravaActivityId?: number) => void
 }
 
-export function GpxUpload({ onFileLoaded }: GpxUploadProps) {
+export function GpxUpload({ onFileLoaded, onStravaFileLoaded }: GpxUploadProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [stravaPickerOpen, setStravaPickerOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -68,6 +69,17 @@ export function GpxUpload({ onFileLoaded }: GpxUploadProps) {
       if (file) handleFile(file)
     },
     [handleFile],
+  )
+
+  const handleStravaFileLoaded = useCallback(
+    (xmlString: string, stravaActivityId?: number) => {
+      if (onStravaFileLoaded) {
+        onStravaFileLoaded(xmlString, stravaActivityId)
+      } else {
+        onFileLoaded(xmlString)
+      }
+    },
+    [onFileLoaded, onStravaFileLoaded],
   )
 
   return (
@@ -188,7 +200,7 @@ export function GpxUpload({ onFileLoaded }: GpxUploadProps) {
       <StravaActivityPicker
         open={stravaPickerOpen}
         onOpenChange={setStravaPickerOpen}
-        onFileLoaded={onFileLoaded}
+        onFileLoaded={handleStravaFileLoaded}
       />
 
       {/* Feature hints */}
