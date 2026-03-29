@@ -9,7 +9,13 @@ A browser-based editor for GPX and TCX activity files. Upload a file, edit laps 
 - **Merge laps** — combine adjacent laps into one
 - **Rename laps** — inline name editing
 - **Reorder & delete laps**
+- **Undo / redo** — full undo/redo support for all lap mutations
 - **Cross-format export** — convert GPX to TCX or vice versa (lossy, with confirmation)
+- **Interactive map** — per-lap track visualization on an interactive map
+- **Charts** — elevation, heart rate, and pace charts plus a lap pace bar chart
+- **Strava import** — OAuth-based Strava activity picker to import activities directly
+- **Activity persistence** — activities are saved to Convex with URL slugs for dedicated activity pages
+- **Authentication** — email/password auth via Better Auth on Convex
 - **Stats** — distance (haversine), duration, elevation, and pace computed per lap
 - **Dark mode** — automatic light/dark theme support
 
@@ -24,7 +30,7 @@ pnpm dev
 ```
 
 `pnpm convex:dev` configures or connects a Convex deployment, pushes the backend
-functions in [`convex/`](/Users/nicolasvergez/conductor/workspaces/gpx-editor/sydney/convex), and generates the local `.env.local`
+functions in [`convex/`](./convex), and generates the local `.env.local`
 values used by TanStack Start. Run it in one terminal and keep it running while
 developing. Then start the app with `pnpm dev` in a second terminal.
 
@@ -50,7 +56,7 @@ pnpm convex:dev
 
 That command will create or refresh `.env.local` with values like
 `CONVEX_DEPLOYMENT`, `VITE_CONVEX_URL`, and `VITE_CONVEX_SITE_URL`. A template
-is available in [`.env.example`](/Users/nicolasvergez/conductor/workspaces/gpx-editor/sydney/.env.example).
+is available in [`.env.example`](./.env.example).
 
 ## Scripts
 
@@ -66,9 +72,12 @@ is available in [`.env.example`](/Users/nicolasvergez/conductor/workspaces/gpx-e
 ## Tech Stack
 
 - [TanStack Start](https://tanstack.com/start) (SSR via Nitro) + [React 19](https://react.dev)
+- [Convex](https://convex.dev) backend (activity storage, auth)
+- [Better Auth](https://www.better-auth.com) for authentication
 - [TypeScript](https://www.typescriptlang.org) (strict mode)
 - [TailwindCSS v4](https://tailwindcss.com) with oklch color themes
 - [shadcn/ui](https://ui.shadcn.com) components (built on Base UI, not Radix)
+- [Recharts](https://recharts.org) for data visualization
 - [Lucide](https://lucide.dev) icons
 
 ## How It Works
