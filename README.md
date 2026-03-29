@@ -58,6 +58,17 @@ That command will create or refresh `.env.local` with values like
 `CONVEX_DEPLOYMENT`, `VITE_CONVEX_URL`, and `VITE_CONVEX_SITE_URL`. A template
 is available in [`.env.example`](./.env.example).
 
+## Strava Setup
+
+To enable importing activities from Strava, create an API application at
+[strava.com/settings/api](https://www.strava.com/settings/api) and set the
+client credentials as Convex environment variables:
+
+```bash
+pnpm exec convex env set STRAVA_CLIENT_ID <your-client-id>
+pnpm exec convex env set STRAVA_CLIENT_SECRET <your-client-secret>
+```
+
 ## Scripts
 
 | Command               | Description                                        |
