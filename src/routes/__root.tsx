@@ -5,6 +5,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { QueryClientProvider } from '@tanstack/react-query'
 import {
   HeadContent,
+  Link,
   Outlet,
   Scripts,
   createRootRouteWithContext,
@@ -75,12 +76,12 @@ function RootComponent() {
           <body className="grain relative min-h-screen">
             <header className="sticky top-0 z-40 border-b border-border/60 bg-card/60 backdrop-blur-md">
               <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-6 py-4">
-                <div className="flex items-center gap-2.5">
+                <Link to="/" className="flex items-center gap-2.5">
                   <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
                     <Activity className="size-4.5 text-primary" />
                   </div>
                   <h1 className="font-serif text-xl tracking-tight text-foreground">GPX Editor</h1>
-                </div>
+                </Link>
                 <UserMenu />
               </div>
             </header>

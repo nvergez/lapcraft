@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
+import type { Id } from '../../convex/_generated/dataModel'
 import type { ActivityDocument } from '~/utils/dom-model'
 import type { LapHandle } from '~/utils/dom-model'
 import { exportGpx, exportTcx } from '~/utils/gpx-parser'
@@ -11,11 +12,11 @@ import {
   splitLap,
   mergeLaps,
   renameLap,
+  renameActivity,
   reorderLaps,
   exportOriginal,
   getTrackPointsFromElement,
 } from '~/utils/dom-operations'
-import { GpxUpload } from './gpx-upload'
 import { LapTable } from './lap-table'
 import { ActivityMap } from './activity-map'
 import { ElevationChart } from './elevation-chart'
@@ -37,7 +38,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
-import { RotateCcw, ChevronDown, Info, X, FileDown, Undo2, Redo2 } from 'lucide-react'
+import {
+  RotateCcw,
+  ChevronDown,
+  Info,
+  X,
+  FileDown,
+  Undo2,
+  Redo2,
+  Pencil,
+  Check,
+} from 'lucide-react'
+import { StravaLogo } from '~/utils/strava'
 import { UndoManager } from '~/utils/undo-manager'
 
 function downloadFile(content: string, filename: string, mimeType: string) {
@@ -54,17 +66,143 @@ function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9-_]/g, '_')
 }
 
-export function GpxEditor() {
-  const [actDoc, setActDoc] = useState<ActivityDocument | null>(null)
+/** Compute aggregate stats from laps for persistence */
+function computeActivitySummary(laps: LapHandle[]) {
+  let totalDistance = 0
+  let totalDuration = 0
+  let totalElevationGain = 0
+  for (const lap of laps) {
+    totalDistance += lap.stats.distance
+    totalDuration += lap.stats.duration
+    totalElevationGain += lap.stats.elevationGain ?? 0
+  }
+  return {
+    distance: totalDistance,
+    duration: totalDuration,
+    elevationGain: totalElevationGain || undefined,
+    lapCount: laps.length,
+  }
+}
+
+function ActivityNameEditor({
+  name,
+  onRename,
+}: {
+  name: string
+  onRename: (name: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(name)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editing])
+
+  function commit() {
+    const trimmed = value.trim()
+    if (trimmed && trimmed !== name) {
+      onRename(trimmed)
+    } else {
+      setValue(name)
+    }
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <input
+          ref={inputRef}
+          className="font-serif text-2xl sm:text-3xl tracking-tight text-foreground leading-tight bg-transparent border-b border-foreground/30 outline-none w-full"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit()
+            if (e.key === 'Escape') {
+              setValue(name)
+              setEditing(false)
+            }
+          }}
+        />
+        <button
+          onClick={commit}
+          className="shrink-0 rounded-md p-1 hover:bg-muted transition-colors"
+        >
+          <Check className="size-4 text-muted-foreground" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="group/name flex items-center gap-2">
+      <h2 className="font-serif text-2xl sm:text-3xl tracking-tight text-foreground leading-tight">
+        {name}
+      </h2>
+      <button
+        onClick={() => {
+          setValue(name)
+          setEditing(true)
+        }}
+        className="shrink-0 rounded-md p-1 opacity-0 group-hover/name:opacity-100 hover:bg-muted transition-all"
+        title="Rename activity"
+      >
+        <Pencil className="size-3.5 text-muted-foreground" />
+      </button>
+    </div>
+  )
+}
+
+interface GpxEditorProps {
+  activityId: Id<'activities'>
+  initialXml: string
+  source: 'file' | 'strava'
+  stravaActivityId?: number
+  onBack: () => void
+  onSave: (data: {
+    activityId: Id<'activities'>
+    xmlContent: string
+    name: string
+    distance: number
+    duration: number
+    elevationGain?: number
+    lapCount: number
+  }) => void
+}
+
+export function GpxEditor({
+  activityId,
+  initialXml,
+  source,
+  stravaActivityId,
+  onBack,
+  onSave,
+}: GpxEditorProps) {
+  const [actDoc] = useState<ActivityDocument | null>(() => {
+    try {
+      const doc = parseToDocument(initialXml)
+      return doc
+    } catch {
+      return null
+    }
+  })
   const [revision, setRevision] = useState(0)
   const undoManagerRef = useRef(new UndoManager())
-  const [showGpxHint, setShowGpxHint] = useState(false)
+  const [showGpxHint, setShowGpxHint] = useState(() => {
+    if (!actDoc) return false
+    return actDoc.sourceFormat === 'gpx' && countLaps(actDoc) === 1
+  })
   const [crossFormatTarget, setCrossFormatTarget] = useState<'gpx' | 'tcx' | null>(null)
   const [hoveredLapId, setHoveredLapId] = useState<string | null>(null)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const laps = useMemo(() => {
     if (!actDoc) return []
-    // revision is used to trigger recomputation after DOM mutations
     void revision
     return getLapHandles(actDoc)
   }, [actDoc, revision])
@@ -72,29 +210,41 @@ export function GpxEditor() {
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
 
+  const persistToConvex = useCallback(
+    (doc: ActivityDocument, currentLaps: LapHandle[]) => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = setTimeout(() => {
+        const xml = exportOriginal(doc)
+        const summary = computeActivitySummary(currentLaps)
+        onSave({
+          activityId,
+          xmlContent: xml,
+          name: doc.name,
+          ...summary,
+        })
+      }, 500)
+    },
+    [activityId, onSave],
+  )
+
   const bumpRevision = useCallback(() => {
     setRevision((r) => r + 1)
     setCanUndo(undoManagerRef.current.canUndo)
     setCanRedo(undoManagerRef.current.canRedo)
   }, [])
 
-  const handleFileLoaded = useCallback((xmlString: string) => {
-    try {
-      const doc = parseToDocument(xmlString)
-      const lapCount = countLaps(doc)
-      if (lapCount === 0) {
-        toast.error('No tracks/laps found in this file')
-        return
-      }
-      undoManagerRef.current.reset()
-      setCanUndo(false)
-      setCanRedo(false)
-      setActDoc(doc)
-      setRevision(0)
-      setShowGpxHint(doc.sourceFormat === 'gpx' && lapCount === 1)
-      toast.success(`Loaded "${doc.name}" with ${lapCount} lap(s)`)
-    } catch (e) {
-      toast.error(`Failed to parse file: ${e instanceof Error ? e.message : 'Unknown error'}`)
+  // After each revision, persist (laps recalculated via useMemo on next render)
+  useEffect(() => {
+    if (!actDoc || revision === 0) return
+    // Recompute laps directly for persistence (useMemo might not have run yet)
+    const currentLaps = getLapHandles(actDoc)
+    persistToConvex(actDoc, currentLaps)
+  }, [actDoc, revision, persistToConvex])
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
   }, [])
 
@@ -170,7 +320,6 @@ export function GpxEditor() {
       if (!actDoc) return
       const baseName = sanitizeFilename(actDoc.name)
 
-      // Build GpxData-like structure for cross-format export
       const gpxData = {
         name: actDoc.name,
         sourceFormat: actDoc.sourceFormat,
@@ -236,17 +385,15 @@ export function GpxEditor() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [handleUndo, handleRedo])
 
-  const handleReset = useCallback(() => {
-    undoManagerRef.current.reset()
-    setCanUndo(false)
-    setCanRedo(false)
-    setActDoc(null)
-    setRevision(0)
-    setShowGpxHint(false)
-  }, [])
-
   if (!actDoc) {
-    return <GpxUpload onFileLoaded={handleFileLoaded} />
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <p className="text-muted-foreground">Failed to parse activity data.</p>
+        <Button variant="ghost" size="sm" className="mt-4" onClick={onBack}>
+          Go back
+        </Button>
+      </div>
+    )
   }
 
   return (
@@ -273,12 +420,31 @@ export function GpxEditor() {
       {/* Activity header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div className="space-y-1">
-          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            {actDoc.sourceFormat.toUpperCase()} Activity
-          </p>
-          <h2 className="font-serif text-2xl sm:text-3xl tracking-tight text-foreground leading-tight">
-            {actDoc.name}
-          </h2>
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              {actDoc.sourceFormat.toUpperCase()} Activity
+            </p>
+            {source === 'strava' && stravaActivityId && (
+              <a
+                href={`https://www.strava.com/activities/${stravaActivityId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-full bg-[#FC4C02]/10 px-2 py-0.5 text-xs text-[#FC4C02] hover:bg-[#FC4C02]/20 transition-colors"
+                title="View on Strava"
+              >
+                <StravaLogo className="size-3" />
+                Strava
+              </a>
+            )}
+          </div>
+          <ActivityNameEditor
+            name={actDoc.name}
+            onRename={(newName) => {
+              undoManagerRef.current.snapshot(actDoc)
+              renameActivity(actDoc, newName)
+              bumpRevision()
+            }}
+          />
           <p className="text-sm text-muted-foreground">
             {laps.length} lap{laps.length !== 1 ? 's' : ''}
           </p>
@@ -302,9 +468,9 @@ export function GpxEditor() {
           >
             <Redo2 className="size-3.5" />
           </Button>
-          <Button variant="ghost" onClick={handleReset} size="sm">
+          <Button variant="ghost" onClick={onBack} size="sm">
             <RotateCcw className="size-3.5" />
-            New file
+            Back
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button size="sm" />}>
