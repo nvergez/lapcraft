@@ -2,6 +2,28 @@ import { v } from 'convex/values'
 import { action, mutation, query } from './_generated/server'
 import { api } from './_generated/api'
 
+/** Generate a URL-friendly slug from a name + optional date + random suffix */
+function generateSlug(name: string, activityDate?: string): string {
+  const base = name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // strip accents
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+
+  let datePart = ''
+  if (activityDate) {
+    const d = new Date(activityDate)
+    if (!isNaN(d.getTime())) {
+      datePart = `-${d.toISOString().slice(0, 10)}`
+    }
+  }
+
+  const rand = Math.random().toString(36).slice(2, 6)
+  return `${base}${datePart}-${rand}`
+}
+
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
@@ -29,10 +51,15 @@ export const create = mutation({
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw new Error('Not authenticated')
 
-    return await ctx.db.insert('activities', {
+    const slug = generateSlug(args.name, args.activityDate)
+
+    const id = await ctx.db.insert('activities', {
       tokenIdentifier: identity.tokenIdentifier,
+      slug,
       ...args,
     })
+
+    return { id, slug }
   },
 })
 
@@ -83,6 +110,25 @@ export const list = query({
       .withIndex('by_tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
       .order('desc')
       .take(50)
+  },
+})
+
+export const getBySlug = query({
+  args: { slug: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return null
+
+    const activity = await ctx.db
+      .query('activities')
+      .withIndex('by_slug', (q) => q.eq('slug', args.slug))
+      .unique()
+
+    if (!activity || activity.tokenIdentifier !== identity.tokenIdentifier) {
+      return null
+    }
+
+    return activity
   },
 })
 

@@ -14,6 +14,7 @@ import { Button } from '~/components/ui/button'
 import { ScrollArea } from '~/components/ui/scroll-area'
 import { stravaToTcx } from '~/utils/strava-to-tcx'
 import { formatDistance, formatDuration } from '~/utils/gpx-parser'
+import { sportIcon, formatActivityDate } from '~/utils/activity-formatting'
 
 interface StravaActivityPickerProps {
   open: boolean
@@ -32,22 +33,6 @@ interface ActivitySummary {
   elapsedTime: number
   totalElevationGain: number
   hasHeartrate: boolean
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function sportIcon(sportType: string): string {
-  const lower = sportType.toLowerCase()
-  if (lower.includes('run')) return '\u{1F3C3}'
-  if (lower.includes('ride') || lower.includes('cycling') || lower.includes('bike'))
-    return '\u{1F6B4}'
-  if (lower.includes('swim')) return '\u{1F3CA}'
-  if (lower.includes('hike') || lower.includes('walk')) return '\u{1F6B6}'
-  if (lower.includes('ski')) return '\u{26F7}\u{FE0F}'
-  return '\u{1F3CB}\u{FE0F}'
 }
 
 export function StravaActivityPicker({
@@ -149,7 +134,7 @@ export function StravaActivityPicker({
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{activity.name}</p>
                     <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
-                      <span>{formatDate(activity.startDate)}</span>
+                      <span>{formatActivityDate(activity.startDate)}</span>
                       <span className="flex items-center gap-1">
                         <Route className="size-3" />
                         {formatDistance(activity.distance)}

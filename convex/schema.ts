@@ -14,6 +14,7 @@ export default defineSchema({
 
   activities: defineTable({
     tokenIdentifier: v.string(),
+    slug: v.string(),
     name: v.string(),
     sourceFormat: v.union(v.literal('gpx'), v.literal('tcx')),
     xmlStorageId: v.id('_storage'),
@@ -27,5 +28,6 @@ export default defineSchema({
     activityDate: v.optional(v.string()),
   })
     .index('by_tokenIdentifier', ['tokenIdentifier'])
-    .index('by_tokenIdentifier_and_stravaActivityId', ['tokenIdentifier', 'stravaActivityId']),
+    .index('by_tokenIdentifier_and_stravaActivityId', ['tokenIdentifier', 'stravaActivityId'])
+    .index('by_slug', ['slug']),
 })
