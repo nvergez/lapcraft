@@ -66,6 +66,16 @@
       "sourceType": "github",
       "computedHash": "91c02eb706f046fb9d6a061efbb96496e4be751b5b14c283cf82baaa50f3a985"
     },
+    "stripe-best-practices": {
+      "source": "docs.stripe.com",
+      "sourceType": "well-known",
+      "computedHash": "ae5889d45a1e29668b672290ca8d3d833fa30ff0634be85c30918ca0385dd1c6"
+    },
+    "stripe-projects": {
+      "source": "docs.stripe.com",
+      "sourceType": "well-known",
+      "computedHash": "74b5f9e1e24d7662000c28d6572e438ac71847d60ea0a8704b088441355e3371"
+    },
     "tanstack-query-best-practices": {
       "source": "deckardger/tanstack-agent-skills",
       "sourceType": "github",
@@ -80,6 +90,11 @@
       "source": "deckardger/tanstack-agent-skills",
       "sourceType": "github",
       "computedHash": "50c1b6d9b35b05927fa0c81962d560634385c9567b7b1d66396b171965b33105"
+    },
+    "upgrade-stripe": {
+      "source": "docs.stripe.com",
+      "sourceType": "well-known",
+      "computedHash": "06c5c3fd85657ff9aaadff65bd2d63f606da8e44802dc1f9aaf42c73263a11b7"
     }
   }
 }

@@ -2,20 +2,70 @@ import { createFileRoute } from '@tanstack/react-router'
 import { streamText, convertToModelMessages, stepCountIs } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { activityTools } from '~/lib/tools/activity-tools'
+import { fetchAuthQuery, fetchAuthMutation } from '~/lib/auth-server'
+import { api } from '../../../convex/_generated/api'
+
+// ---------------------------------------------------------------------------
+// Tool credit costs (from design doc)
+// ---------------------------------------------------------------------------
+
+const TOOL_COSTS: Record<string, number> = {
+  getLapDetails: 0,
+  getColumns: 0,
+  renameActivity: 1,
+  renameLap: 1,
+  deleteLap: 1,
+  splitLap: 2,
+  mergeLaps: 2,
+  toggleBuiltinColumn: 1,
+  addCustomColumn: 1,
+  removeCustomColumn: 1,
+  setCustomColumnValue: 1,
+}
+
+const BASE_MESSAGE_COST = 1
 
 export const Route = createFileRoute('/api/chat')({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        // 1. Check credits
+        const balance = await fetchAuthQuery(api.credits.getBalance)
+        if (!balance) {
+          return Response.json({ error: 'Not authenticated' }, { status: 401 })
+        }
+        if (balance.total <= 0) {
+          return Response.json({ error: 'No credits remaining' }, { status: 403 })
+        }
+
         const { messages, activityContext } = await request.json()
         const systemPrompt = buildSystemPrompt(activityContext)
 
+        // 2. Stream the response, deduct credits when done
         const result = streamText({
           model: openai('gpt-5.4-mini'),
           system: systemPrompt,
           messages: await convertToModelMessages(messages),
           tools: activityTools,
           stopWhen: stepCountIs(10),
+          onFinish: async ({ toolCalls }) => {
+            let cost = BASE_MESSAGE_COST
+            for (const tc of toolCalls) {
+              cost += TOOL_COSTS[tc.toolName] ?? 1
+            }
+
+            const toolSummary =
+              toolCalls.length > 0 ? ` + ${toolCalls.map((tc) => tc.toolName).join(', ')}` : ''
+
+            try {
+              await fetchAuthMutation(api.credits.deductMyCredits, {
+                amount: cost,
+                metadata: `chat turn${toolSummary}`,
+              })
+            } catch (err) {
+              console.error('Failed to deduct credits:', err)
+            }
+          },
         })
 
         return result.toUIMessageStreamResponse()

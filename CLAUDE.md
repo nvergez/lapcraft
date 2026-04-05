@@ -25,7 +25,7 @@ Cross-format export (GPX→TCX or TCX→GPX) is lossy and requires user confirma
 
 ### AI Chat Assistant
 
-"Trail Companion" — a conversational AI agent (`src/components/activity-chat.tsx`) that can edit activities via natural language. Uses AI SDK with streaming text and 6 tools: `renameActivity`, `renameLap`, `deleteLap`, `splitLap`, `mergeLaps`, `getLapDetails`. Non-destructive tools auto-execute; mutations require user approval. Server endpoint at `src/routes/api/chat.ts`. Tool definitions in `src/lib/tools/activity-tools.ts`.
+"Trail Companion" — a conversational AI agent (`src/components/activity-chat.tsx`) that can edit activities via natural language. Uses AI SDK with streaming text and 12 tools: `renameActivity`, `renameLap`, `deleteLap`, `splitLap`, `mergeLaps`, `getLapDetails`, `getColumns`, `toggleBuiltinColumn`, `addCustomColumn`, `removeCustomColumn`, `setCustomColumnValue`. Non-destructive tools auto-execute; mutations require user approval. Server endpoint at `src/routes/api/chat.ts`. Tool definitions in `src/lib/tools/activity-tools.ts`. Each chat turn and tool call costs credits (defined in `src/routes/api/chat.ts`).
 
 ### Custom Columns & CSV Export
 
@@ -46,7 +46,24 @@ OAuth-based activity import from Strava (`src/components/strava-activity-picker.
 
 ### Authentication
 
-Email/password authentication via Better Auth integrated with Convex (`src/components/auth-gate.tsx`). Auth server config in `convex/auth.ts` and `convex/auth.config.ts`. Client wrapper in `src/utils/auth-client.ts`.
+Email/password authentication via Better Auth integrated with Convex (`src/components/auth-gate.tsx`). Auth server config in `convex/auth.ts`. Client wrapper in `src/lib/auth-client.ts` (includes admin plugin for impersonation). Better Auth component files in `convex/betterAuth/`.
+
+### Credits & Billing
+
+Freemium model with Stripe. Two plans: Free (20 credits/month, 10 activities, 1 custom column/activity) and Premium (€5/month, 750 credits, unlimited). Credit packs available for one-time purchase.
+
+- **Credit engine**: `convex/credits.ts` — plan credits (reset monthly) + purchased credits pool, transaction ledger, balance queries
+- **Plan limits**: `convex/planLimits.ts` — max activities and custom columns per plan; enforced in `convex/activities.ts` and `convex/columns.ts`
+- **Pricing definitions**: `src/lib/pricing.ts` — single source of truth for plans and credit packs (EUR)
+- **Stripe integration**: `src/lib/stripe.ts` (client singleton), `convex/stripe.ts` (webhook action handlers)
+- **API routes**: `src/routes/api/stripe/checkout.ts` (session creation), `src/routes/api/stripe/webhook.ts` (Stripe event processing), `src/routes/api/stripe/portal.ts` (billing portal), `src/routes/api/stripe/admin-plan.ts` (admin plan management)
+- **Pricing page**: `src/routes/pricing.tsx` — plan cards, credit packs, billing portal link
+- **Admin dashboard**: `src/routes/admin.tsx` — user listing, credit grants, plan toggling, impersonation; backend in `convex/admin.ts`
+- **Server helpers**: `src/lib/convex-server.ts` (unauthenticated ConvexHttpClient), `src/lib/auth-server.ts` (authenticated Convex calls using Better Auth session)
+
+### Internationalization
+
+English and French translations via Paraglide.js. Message files in `messages/en.json` and `messages/fr.json`. Language settings configured in `project.inlang/settings.json`.
 
 ### Data Visualization
 
@@ -69,17 +86,29 @@ Email/password authentication via Better Auth integrated with Convex (`src/compo
 - `src/components/split-dialog.tsx` — Interactive split point selector
 - `src/components/activity-chat.tsx` — AI chat assistant (Trail Companion)
 - `src/components/customize-columns-dialog.tsx` — Custom column management
-- `src/lib/tools/activity-tools.ts` — AI tool definitions (6 tools with Zod schemas)
-- `convex/schema.ts` — Database schema (activities, columnDefinitions, activityColumns, columnValues, stravaConnections)
-- `convex/activities.ts` — Activity CRUD operations
-- `convex/columns.ts` — Custom column CRUD, linking, and value storage
+- `src/lib/tools/activity-tools.ts` — AI tool definitions (12 tools with Zod schemas)
+- `convex/schema.ts` — Database schema (activities, columnDefinitions, activityColumns, columnValues, stravaConnections, userProfiles, creditTransactions)
+- `convex/activities.ts` — Activity CRUD operations (with plan limit enforcement)
+- `convex/columns.ts` — Custom column CRUD, linking, and value storage (with plan limit enforcement)
+- `convex/credits.ts` — Credit balance, deduction, and transaction ledger
+- `convex/stripe.ts` — Stripe webhook action handlers
+- `convex/planLimits.ts` — Plan feature limits (activities, columns)
+- `convex/admin.ts` — Admin queries and mutations (user listing, credit grants)
+- `src/lib/pricing.ts` — Plan and credit pack definitions (EUR)
+- `src/lib/stripe.ts` — Stripe client singleton
+- `src/lib/convex-server.ts` — Server-side ConvexHttpClient (unauthenticated)
+- `src/lib/auth-server.ts` — Server-side authenticated Convex helpers
+- `src/routes/pricing.tsx` — Pricing page UI
+- `src/routes/admin.tsx` — Admin dashboard UI
 
 ### Stack
 
 - **Routing**: TanStack Router (file-based, `src/routes/`); route tree auto-generated as `routeTree.gen.ts`
 - **Backend**: Convex (real-time database, file storage, auth)
-- **Auth**: Better Auth (email/password) integrated with Convex
-- **AI**: AI SDK with streaming text and tool calling (gpt-5.4-mini via OpenAI)
+- **Auth**: Better Auth (email/password + admin plugin) integrated with Convex
+- **Billing**: Stripe (subscriptions, credit packs, billing portal)
+- **AI**: AI SDK with streaming text and tool calling (gpt-5.4-mini via OpenAI); credit-metered
+- **i18n**: Paraglide.js (English + French), messages in `messages/`
 - **UI**: shadcn components (`src/components/ui/`) built on `@base-ui/react` (headless), not Radix
 - **Styling**: TailwindCSS v4 with oklch CSS variables for light/dark themes (`src/styles/app.css`)
 - **Maps**: Leaflet (react-leaflet) for activity visualization

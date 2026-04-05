@@ -1,41 +1,48 @@
-import { createClient, type GenericCtx } from '@convex-dev/better-auth'
+import { convexAdapter, createClient, type GenericCtx } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
-import { betterAuth } from 'better-auth/minimal'
-import { componentsGeneric, queryGeneric, type FunctionReference } from 'convex/server'
+import { betterAuth, type BetterAuthOptions } from 'better-auth/minimal'
+import { admin } from 'better-auth/plugins'
+import { queryGeneric } from 'convex/server'
+import { components } from './_generated/api'
 import authConfig from './auth.config'
+import authSchema from './betterAuth/schema'
 
-type BetterAuthComponent = {
-  adapter: {
-    create: FunctionReference<'mutation', 'internal'>
-    findOne: FunctionReference<'query', 'internal'>
-    findMany: FunctionReference<'query', 'internal'>
-    updateOne: FunctionReference<'mutation', 'internal'>
-    updateMany: FunctionReference<'mutation', 'internal'>
-    deleteOne: FunctionReference<'mutation', 'internal'>
-    deleteMany: FunctionReference<'mutation', 'internal'>
-  }
-}
+export const authComponent = createClient(components.betterAuth, {
+  local: {
+    schema: authSchema,
+  },
+})
 
-const components = componentsGeneric()
-const siteUrl = process.env.SITE_URL
-
-if (!siteUrl) {
-  throw new Error(
-    'SITE_URL is not set. Set it in your Convex deployment with `pnpm exec convex env set SITE_URL http://localhost:3000`.',
-  )
-}
-
-export const authComponent = createClient(components.betterAuth as unknown as BetterAuthComponent)
-
-export function createAuth(ctx: GenericCtx) {
-  return betterAuth({
-    baseURL: siteUrl,
-    database: authComponent.adapter(ctx),
+/**
+ * Returns Better Auth options for schema extraction and adapter use.
+ * Called by createApi with a dummy context — must not throw on missing env vars.
+ */
+export function createAuthOptions(): BetterAuthOptions {
+  return {
+    baseURL: process.env.SITE_URL ?? 'http://localhost:3000',
+    database: convexAdapter({} as never, {} as never),
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,
     },
-    plugins: [convex({ authConfig })],
+    plugins: [admin(), convex({ authConfig })],
+  }
+}
+
+/**
+ * Creates a full Better Auth instance for handling HTTP requests.
+ */
+export function createAuth(ctx: GenericCtx) {
+  const siteUrl = process.env.SITE_URL
+  if (!siteUrl) {
+    throw new Error(
+      'SITE_URL is not set. Set it in your Convex deployment with `pnpm exec convex env set SITE_URL http://localhost:3000`.',
+    )
+  }
+  return betterAuth({
+    ...createAuthOptions(),
+    baseURL: siteUrl,
+    database: authComponent.adapter(ctx),
   })
 }
 

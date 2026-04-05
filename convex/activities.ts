@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 import { action, mutation, query } from './_generated/server'
 import { api } from './_generated/api'
+import { PLAN_LIMITS } from './credits'
 
 /** Generate a URL-friendly slug from a name + optional date + random suffix */
 function generateSlug(name: string, activityDate?: string): string {
@@ -50,6 +51,23 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw new Error('Not authenticated')
+
+    // Enforce plan activity limit
+    const profile = await ctx.db
+      .query('userProfiles')
+      .withIndex('by_tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
+      .unique()
+    const plan = profile?.plan ?? 'free'
+    const limit = PLAN_LIMITS[plan].maxActivities
+    if (limit !== null) {
+      const existing = await ctx.db
+        .query('activities')
+        .withIndex('by_tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
+        .take(limit + 1)
+      if (existing.length >= limit) {
+        throw new Error(`ACTIVITY_LIMIT_REACHED:${limit}`)
+      }
+    }
 
     const slug = generateSlug(args.name, args.activityDate)
 
@@ -175,5 +193,31 @@ export const remove = mutation({
     // Delete the stored XML blob
     await ctx.storage.delete(activity.xmlStorageId)
     await ctx.db.delete(args.activityId)
+  },
+})
+
+/** Check whether the current user can create more activities under their plan. */
+export const checkActivityLimit = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return null
+
+    const profile = await ctx.db
+      .query('userProfiles')
+      .withIndex('by_tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
+      .unique()
+
+    const plan = profile?.plan ?? 'free'
+    const max = PLAN_LIMITS[plan].maxActivities
+
+    if (max === null) return { allowed: true, current: 0, max: null }
+
+    const existing = await ctx.db
+      .query('activities')
+      .withIndex('by_tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
+      .take(max + 1)
+
+    return { allowed: existing.length < max, current: existing.length, max }
   },
 })

@@ -15,14 +15,20 @@ A browser-based tool for analyzing, editing, and crafting your activity laps. Up
 - **Reorder & delete laps**
 - **Undo / redo** — full undo/redo support for all lap mutations
 - **Cross-format export** — convert GPX to TCX or vice versa (lossy, with confirmation)
-- **AI chat assistant** — "Trail Companion" lets you edit activities via natural language (rename, split, merge, delete laps); destructive actions require approval
+- **AI chat assistant** — "Trail Companion" lets you edit activities via natural language (rename, split, merge, delete laps, manage columns); destructive actions require approval; credit-metered usage
 - **Custom columns** — add manual data columns or computed columns with formulas (divide, multiply, add, subtract) to the lap table; column definitions are shared across activities
 - **CSV export** — export lap data including custom column values
 - **Interactive map** — per-lap track visualization on an interactive map
 - **Charts** — elevation, heart rate, and pace charts plus a lap pace bar chart
 - **Strava import** — OAuth-based Strava activity picker to import activities directly
 - **Activity persistence** — activities are saved to Convex with URL slugs for dedicated activity pages
-- **Authentication** — email/password auth via Better Auth on Convex
+- **Authentication** — email/password auth via Better Auth on Convex (with admin plugin for impersonation)
+- **Stripe billing** — freemium model with free/premium plans, credit packs, and Stripe-powered checkout and billing portal
+- **Credit system** — plan credits (reset monthly) + purchased credits; per-tool costs for AI chat; balance displayed in sidebar and chat header
+- **Plan limits** — free plan enforces activity count and custom column limits; premium unlocks unlimited usage
+- **Pricing page** — plan comparison, credit pack purchase, and billing portal access
+- **Admin dashboard** — user management, credit grants, plan toggling, and user impersonation (admin role required)
+- **i18n** — English and French translations via Paraglide.js
 - **Stats** — distance (haversine), duration, elevation, and pace computed per lap
 - **Dark mode** — automatic light/dark theme support
 
@@ -46,7 +52,8 @@ The app server starts at `http://localhost:3000`.
 ## Auth Setup
 
 This repo uses **Better Auth on top of Convex**, following the TanStack Start
-guide from Convex Labs.
+guide from Convex Labs. The admin plugin is enabled for user impersonation and
+management.
 
 Before signing in locally, set the required Convex environment variables:
 
@@ -64,6 +71,30 @@ pnpm convex:dev
 That command will create or refresh `.env.local` with values like
 `CONVEX_DEPLOYMENT`, `VITE_CONVEX_URL`, and `VITE_CONVEX_SITE_URL`. A template
 is available in [`.env.example`](./.env.example).
+
+## Stripe Setup
+
+Stripe powers subscriptions, credit pack purchases, and billing portal access.
+
+1. Create a [Stripe](https://stripe.com) account and get your API keys.
+2. Set the required environment variables in `.env.local`:
+
+```bash
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+3. Set the Convex webhook secret (used for defense-in-depth verification when
+   Stripe webhooks call Convex actions):
+
+```bash
+pnpm exec convex env set STRIPE_WEBHOOK_CONVEX_SECRET "$(openssl rand -base64 32)"
+```
+
+4. Point a Stripe webhook at `<your-site>/api/stripe/webhook` and subscribe to:
+   - `checkout.session.completed`
+   - `invoice.paid`
+   - `customer.subscription.deleted`
 
 ## Strava Setup
 
@@ -90,8 +121,10 @@ pnpm exec convex env set STRAVA_CLIENT_SECRET <your-client-secret>
 ## Tech Stack
 
 - [TanStack Start](https://tanstack.com/start) (SSR via Nitro) + [React 19](https://react.dev)
-- [Convex](https://convex.dev) backend (activity storage, auth)
-- [Better Auth](https://www.better-auth.com) for authentication
+- [Convex](https://convex.dev) backend (activity storage, auth, credits)
+- [Better Auth](https://www.better-auth.com) for authentication (with admin plugin)
+- [Stripe](https://stripe.com) for subscriptions and payments
+- [Paraglide.js](https://inlang.com/m/gerre34r/library-inlang-paraglideJs) for i18n (English + French)
 - [TypeScript](https://www.typescriptlang.org) (strict mode)
 - [TailwindCSS v4](https://tailwindcss.com) with oklch color themes
 - [shadcn/ui](https://ui.shadcn.com) components (built on Base UI, not Radix)

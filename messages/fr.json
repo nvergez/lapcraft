@@ -220,5 +220,8 @@
   "hub_loaded": "\u00ab\u00a0{name}\u00a0\u00bb charg\u00e9 avec {count} tour(s)",
   "hub_save_failed": "\u00c9chec de la sauvegarde\u00a0: {error}",
   "locale_en": "EN",
-  "locale_fr": "FR"
+  "locale_fr": "FR",
+  "limit_activities_reached": "Vous avez atteint la limite du plan gratuit ({max} activit\u00e9s). Passez en Premium pour un acc\u00e8s illimit\u00e9.",
+  "limit_columns_reached": "Plan gratuit\u00a0: {max} colonne custom par activit\u00e9. Passez en Premium pour un acc\u00e8s illimit\u00e9.",
+  "limit_upgrade": "Upgrade"
 }

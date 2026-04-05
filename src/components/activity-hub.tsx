@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react'
 import { useConvexMutation } from '@convex-dev/react-query'
-import { useNavigate } from '@tanstack/react-router'
+import { useQuery } from 'convex/react'
+import { useNavigate, Link } from '@tanstack/react-router'
 import { api } from '../../convex/_generated/api'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Lock } from 'lucide-react'
 import { GpxUpload } from './gpx-upload'
 import { parseToDocument, getLapHandles, countLaps, exportOriginal } from '~/utils/dom-operations'
 import { uploadXml } from '~/utils/xml-storage'
@@ -12,6 +13,7 @@ import * as m from '~/paraglide/messages.js'
 export function ActivityHub() {
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
+  const activityLimit = useQuery(api.activities.checkActivityLimit)
 
   const generateUploadUrlFn = useConvexMutation(api.activities.generateUploadUrl)
   const createActivityFn = useConvexMutation(api.activities.create)
@@ -102,6 +104,20 @@ export function ActivityHub() {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (activityLimit && !activityLimit.allowed) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-12 text-center">
+        <Lock className="size-8 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground max-w-sm">
+          {m.limit_activities_reached({ max: String(activityLimit.max) })}
+        </p>
+        <Link to="/pricing" className="text-sm font-medium text-primary hover:underline">
+          {m.limit_upgrade()}
+        </Link>
       </div>
     )
   }

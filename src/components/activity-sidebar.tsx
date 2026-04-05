@@ -19,6 +19,8 @@ import {
   Settings,
   LogOut,
   Sparkles,
+  Zap,
+  Shield,
 } from 'lucide-react'
 import { formatDistance, formatDuration } from '~/utils/gpx-parser'
 import { sportIcon, formatActivityDate } from '~/utils/activity-formatting'
@@ -301,6 +303,7 @@ export function ActivitySidebar() {
         </SidebarContent>
 
         <SidebarFooter>
+          <CreditBadge />
           <SidebarUserFooter />
         </SidebarFooter>
       </Sidebar>
@@ -370,6 +373,7 @@ export function ActivitySidebar() {
 function SidebarUserFooter() {
   const { data: session } = authClient.useSession()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const navigate = useNavigate()
 
   if (!session?.session) return null
 
@@ -433,6 +437,12 @@ function SidebarUserFooter() {
                 <Settings className="size-3.5" />
                 {m.sidebar_settings()}
               </DropdownMenuItem>
+              {(session.user as Record<string, unknown>)?.role === 'admin' && (
+                <DropdownMenuItem onClick={() => navigate({ to: '/admin' })}>
+                  <Shield className="size-3.5" />
+                  Admin
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut className="size-3.5" />
@@ -444,5 +454,48 @@ function SidebarUserFooter() {
       </SidebarMenu>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </>
+  )
+}
+
+function CreditBadge() {
+  const { data: balance } = useQuery(convexQuery(api.credits.getBalance, {}))
+
+  if (!balance) return null
+
+  const isPremium = balance.plan === 'premium'
+  const low = balance.total <= 5 && balance.total > 0
+  const empty = balance.total <= 0
+
+  return (
+    <a
+      href="/pricing"
+      className={`mx-2 flex items-center gap-2.5 rounded-lg border px-3 py-2 text-xs transition-colors hover:bg-sidebar-accent ${
+        empty
+          ? 'border-destructive/30 bg-destructive/5'
+          : low
+            ? 'border-amber-500/30 bg-amber-500/5'
+            : 'border-sidebar-border bg-sidebar-accent/30'
+      }`}
+    >
+      <Zap
+        className={`size-3.5 ${
+          empty ? 'text-destructive' : low ? 'text-amber-500' : 'text-primary'
+        }`}
+      />
+      <div className="flex-1 min-w-0">
+        <span className="font-medium tabular-nums">
+          {balance.total} {balance.total === 1 ? 'credit' : 'credits'}
+        </span>
+      </div>
+      <span
+        className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+          isPremium
+            ? 'bg-primary/10 text-primary'
+            : 'bg-sidebar-foreground/10 text-sidebar-foreground/50'
+        }`}
+      >
+        {isPremium ? 'Pro' : 'Free'}
+      </span>
+    </a>
   )
 }

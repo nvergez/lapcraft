@@ -220,5 +220,8 @@
   "hub_loaded": "Loaded \u201c{name}\u201d with {count} lap(s)",
   "hub_save_failed": "Failed to save activity: {error}",
   "locale_en": "EN",
-  "locale_fr": "FR"
+  "locale_fr": "FR",
+  "limit_activities_reached": "You\u2019ve reached the free plan limit of {max} activities. Upgrade to Premium for unlimited activities.",
+  "limit_columns_reached": "Free plan: {max} custom column per activity. Upgrade to Premium for unlimited columns.",
+  "limit_upgrade": "Upgrade"
 }
