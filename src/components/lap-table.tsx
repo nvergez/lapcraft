@@ -181,6 +181,19 @@ export function LapTable({
   const [editingLapId, setEditingLapId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [splitLap, setSplitLap] = useState<LapHandle | null>(null)
+  const [selectedLapIds, setSelectedLapIds] = useState<Set<string>>(new Set())
+
+  const toggleLapSelection = useCallback((lapId: string) => {
+    setSelectedLapIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(lapId)) {
+        next.delete(lapId)
+      } else {
+        next.add(lapId)
+      }
+      return next
+    })
+  }, [])
 
   const startEditing = useCallback((lap: LapHandle) => {
     setEditName(lap.name)
@@ -588,21 +601,35 @@ export function LapTable({
           <TableBody>
             {table.getRowModel().rows.map((row) => {
               const isHovered = hoveredLapId === row.original.id
+              const isSelected = selectedLapIds.has(row.original.id)
               return (
                 <TableRow
                   key={row.id}
-                  className={`group border-border/40 transition-colors ${isHovered ? 'bg-primary/5 dark:bg-primary/10' : 'hover:bg-warm-50/50 dark:hover:bg-warm-800/20'}`}
+                  className={`group border-border/40 transition-colors cursor-pointer ${isSelected ? 'bg-primary/10 dark:bg-primary/15' : isHovered ? 'bg-primary/5 dark:bg-primary/10' : 'hover:bg-warm-50/50 dark:hover:bg-warm-800/20'}`}
                   onMouseEnter={() => onHoverLap?.(row.original.id)}
                   onMouseLeave={() => onHoverLap?.(null)}
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement
+                    if (
+                      target.closest(
+                        'button, input, [role="menu"], [data-radix-popper-content-wrapper]',
+                      )
+                    )
+                      return
+                    toggleLapSelection(row.original.id)
+                  }}
                 >
                   {row.getVisibleCells().map((cell) => {
                     const align =
                       (cell.column.columnDef.meta as { align?: string })?.align ?? 'left'
+                    const stickyBg = isSelected
+                      ? 'bg-primary/10 dark:bg-primary/15'
+                      : 'bg-card group-hover:bg-warm-50/50 dark:group-hover:bg-warm-800/20'
                     const stickyClass =
                       cell.column.id === 'index'
-                        ? 'sticky left-0 z-10 bg-card group-hover:bg-warm-50/50 dark:group-hover:bg-warm-800/20 transition-colors'
+                        ? `sticky left-0 z-10 ${stickyBg} transition-colors`
                         : cell.column.id === 'actions'
-                          ? 'sticky right-0 bg-card group-hover:bg-warm-50/50 dark:group-hover:bg-warm-800/20 transition-colors'
+                          ? `sticky right-0 ${stickyBg} transition-colors`
                           : ''
                     return (
                       <TableCell
