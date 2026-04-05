@@ -33,10 +33,26 @@ interface LapContext {
   pointCount: number
 }
 
+interface BuiltinColumnCtx {
+  key: string
+  label: string
+  visible: boolean
+}
+
+interface CustomColumnCtx {
+  name: string
+  type: 'manual' | 'computed'
+  formula?: string
+}
+
 interface ActivityContext {
   name: string
   format: 'gpx' | 'tcx'
   laps: LapContext[]
+  columns?: {
+    builtin: BuiltinColumnCtx[]
+    custom: CustomColumnCtx[]
+  }
 }
 
 function buildSystemPrompt(ctx: ActivityContext): string {
@@ -47,6 +63,27 @@ function buildSystemPrompt(ctx: ActivityContext): string {
     )
     .join('\n')
 
+  let columnSection = ''
+  if (ctx.columns) {
+    const builtinList = ctx.columns.builtin
+      .map((c) => `  ${c.visible ? '✓' : '✗'} ${c.label} (key: ${c.key})`)
+      .join('\n')
+    const customList =
+      ctx.columns.custom.length > 0
+        ? ctx.columns.custom
+            .map((c) => `  • "${c.name}" (${c.type}${c.formula ? `, formula: ${c.formula}` : ''})`)
+            .join('\n')
+        : '  (none)'
+    columnSection = `
+
+## Columns
+Built-in (✓ = visible, ✗ = hidden):
+${builtinList}
+
+Custom columns on this activity:
+${customList}`
+  }
+
   return `You are Trail Companion, the AI assistant built into Lapcraft. Help users modify their fitness activities through natural language.
 
 ## Current Activity
@@ -54,7 +91,7 @@ function buildSystemPrompt(ctx: ActivityContext): string {
 - Format: ${ctx.format.toUpperCase()}
 
 ## Laps (${ctx.laps.length} total)
-${lapList || '(no laps)'}
+${lapList || '(no laps)'}${columnSection}
 
 ## Guidelines
 - Use the exact lap IDs shown above when calling tools.
@@ -66,5 +103,14 @@ ${lapList || '(no laps)'}
 - You cannot delete or reorder laps. All operations preserve every trackpoint — laps are just organizational boundaries over the same GPS data.
 - When splitting, the number of parts must be between 2 and 20.
 - When merging, the two laps must be adjacent (consecutive in the list).
-- Use getLapDetails to fetch full statistics (pace, HR, cadence, power, calories, elevation gain/loss, max speed) before answering analytical questions like "which lap was fastest" or "compare my laps". The lap list above only has basic info.`
+- Use getLapDetails to fetch full statistics (pace, HR, cadence, power, calories, elevation gain/loss, max speed) before answering analytical questions like "which lap was fastest" or "compare my laps". The lap list above only has basic info.
+
+## Column Management
+- Use getColumns to inspect the current column setup before making changes.
+- toggleBuiltinColumn shows/hides built-in columns using the key (e.g. "avgHr", "calories").
+- addCustomColumn creates a manual column (user-entered values) or a computed column (formula with two operands).
+  - For computed columns, operands can be built-in stat keys (distance, duration, avgHr, maxHr, avgCadence, avgPower, maxSpeed, calories, elevationGain, elevationLoss) or names of existing manual custom columns.
+  - Operators: divide (A/B), divideby (B/A), multiply (A×B), add (A+B), subtract (A−B).
+- removeCustomColumn unlinks a custom column from this activity (does not delete it permanently).
+- setCustomColumnValue sets a numeric value for a manual custom column on a specific lap.`
 }
