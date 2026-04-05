@@ -3,8 +3,7 @@ import { toast } from 'sonner'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import type { ActivityDocument } from '~/utils/dom-model'
-import type { LapHandle } from '~/utils/dom-model'
+import type { ActivityDocument, LapHandle } from '~/utils/dom-model'
 import {
   exportGpx,
   exportTcx,
@@ -23,6 +22,7 @@ import {
   exportOriginal,
   getTrackPointsFromElement,
 } from '~/utils/dom-operations'
+import type { Formula } from '~/utils/custom-columns'
 import { exportLapsCsv } from '~/utils/csv-export'
 import { LapTable } from './lap-table'
 import type { CustomColumnConfig } from './lap-table'
@@ -334,6 +334,9 @@ export function GpxEditor({
   const columnValues = useMemo(() => columnValuesRaw ?? [], [columnValuesRaw])
   const setColumnValue = useMutation(api.columns.setValue)
   const clearColumnValue = useMutation(api.columns.clearValue)
+  const createColumnDefinition = useMutation(api.columns.createDefinition)
+  const addColumnToActivity = useMutation(api.columns.addColumnToActivity)
+  const removeColumnFromActivity = useMutation(api.columns.removeColumnFromActivity)
 
   const customColumnConfig = useMemo((): CustomColumnConfig | undefined => {
     if (activityColumns.length === 0 && allDefinitions.length === 0) return undefined
@@ -353,6 +356,65 @@ export function GpxEditor({
   const handleBuiltinVisibilityChange = useCallback((key: string, visible: boolean) => {
     setBuiltinVisibility((prev) => ({ ...prev, [key]: visible }))
   }, [])
+
+  // Column callbacks for AI chat
+  const handleAddCustomColumn = useCallback(
+    async (args: { name: string; type: 'manual' | 'computed'; formula?: Formula }) => {
+      const colId = await createColumnDefinition({
+        name: args.name,
+        type: args.type,
+        formula: args.formula,
+        isShared: false,
+      })
+      const maxOrder = activityColumns.reduce((max, ac) => Math.max(max, ac.order), 0)
+      await addColumnToActivity({ activityId, columnId: colId, order: maxOrder + 1 })
+    },
+    [createColumnDefinition, addColumnToActivity, activityId, activityColumns],
+  )
+
+  const handleRemoveCustomColumn = useCallback(
+    async (columnName: string) => {
+      const def = allDefinitions.find((d) => d.name === columnName)
+      if (!def) throw new Error(`Column "${columnName}" not found`)
+      const link = activityColumns.find((ac) => ac.columnId === def._id)
+      if (!link) throw new Error(`Column "${columnName}" is not on this activity`)
+      await removeColumnFromActivity({ id: link._id })
+    },
+    [allDefinitions, activityColumns, removeColumnFromActivity],
+  )
+
+  const handleSetCustomColumnValue = useCallback(
+    async (columnName: string, lapId: string, value: number) => {
+      const def = allDefinitions.find((d) => d.name === columnName && d.type === 'manual')
+      if (!def) throw new Error(`Manual column "${columnName}" not found`)
+      await setColumnValue({ activityId, columnId: def._id, lapId, value })
+    },
+    [allDefinitions, activityId, setColumnValue],
+  )
+
+  const columnContext = useMemo(
+    () => ({
+      builtinVisibility,
+      allDefinitions,
+      activityColumns,
+    }),
+    [builtinVisibility, allDefinitions, activityColumns],
+  )
+
+  const columnCallbacksObj = useMemo(
+    () => ({
+      onToggleBuiltinColumn: handleBuiltinVisibilityChange,
+      onAddCustomColumn: handleAddCustomColumn,
+      onRemoveCustomColumn: handleRemoveCustomColumn,
+      onSetCustomColumnValue: handleSetCustomColumnValue,
+    }),
+    [
+      handleBuiltinVisibilityChange,
+      handleAddCustomColumn,
+      handleRemoveCustomColumn,
+      handleSetCustomColumnValue,
+    ],
+  )
 
   const laps = useMemo(() => {
     if (!actDoc) return []
@@ -767,6 +829,8 @@ export function GpxEditor({
               onRenameLap={handleRenameLap}
               onSplitLap={handleSplitLap}
               onMergeLaps={handleMergeLaps}
+              columnContext={columnContext}
+              columnCallbacks={columnCallbacksObj}
             />
           </div>
 

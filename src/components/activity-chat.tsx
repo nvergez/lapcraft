@@ -20,8 +20,20 @@ import {
   AlertCircle,
   MapPin,
   Ban,
+  Eye,
+  Plus,
+  Trash2,
+  PenLine,
+  Columns3,
 } from 'lucide-react'
 import type { ActivityDocument, LapHandle } from '~/utils/dom-model'
+import type {
+  ColumnDefinition,
+  ActivityColumn,
+  Formula,
+  FormulaOperator,
+} from '~/utils/custom-columns'
+import { BUILTIN_OPERANDS } from '~/utils/custom-columns'
 import { formatDistance, formatDuration, formatPace, formatSpeed } from '~/utils/gpx-parser'
 import * as m from '~/paraglide/messages.js'
 
@@ -32,11 +44,30 @@ interface MutationCallbacks {
   onMergeLaps: (lapIds: [string, string]) => void
 }
 
+interface ColumnCallbacks {
+  onToggleBuiltinColumn: (key: string, visible: boolean) => void
+  onAddCustomColumn: (args: {
+    name: string
+    type: 'manual' | 'computed'
+    formula?: Formula
+  }) => Promise<void>
+  onRemoveCustomColumn: (columnName: string) => Promise<void>
+  onSetCustomColumnValue: (columnName: string, lapId: string, value: number) => Promise<void>
+}
+
+interface ColumnContext {
+  builtinVisibility: Record<string, boolean>
+  allDefinitions: ColumnDefinition[]
+  activityColumns: ActivityColumn[]
+}
+
 interface ActivityChatProps extends MutationCallbacks {
   actDoc: ActivityDocument
   revision: number
   laps: LapHandle[]
   onClose: () => void
+  columnContext?: ColumnContext
+  columnCallbacks?: ColumnCallbacks
 }
 
 function computeEqualSplitIndices(pointCount: number, parts: number): number[] {
@@ -47,8 +78,27 @@ function computeEqualSplitIndices(pointCount: number, parts: number): number[] {
   return indices
 }
 
-function buildActivityContext(actDoc: ActivityDocument, laps: LapHandle[]) {
-  return {
+const BUILTIN_COLUMN_LABELS: Record<string, string> = {
+  distance: 'Distance',
+  duration: 'Duration',
+  pace: 'Pace',
+  avgHr: 'Avg HR',
+  maxHr: 'Max HR',
+  avgCadence: 'Cadence',
+  avgPower: 'Power',
+  maxSpeed: 'Max Speed',
+  calories: 'Calories',
+  elevationGain: 'Elev +',
+  elevationLoss: 'Elev −',
+  pointCount: 'Points',
+}
+
+function buildActivityContext(
+  actDoc: ActivityDocument,
+  laps: LapHandle[],
+  columnCtx?: ColumnContext,
+) {
+  const base = {
     name: actDoc.name,
     format: actDoc.sourceFormat,
     laps: laps.map((lap) => ({
@@ -59,7 +109,31 @@ function buildActivityContext(actDoc: ActivityDocument, laps: LapHandle[]) {
       elevationGain: lap.stats.elevationGain,
       pointCount: lap.pointCount,
     })),
+    columns: undefined as unknown,
   }
+
+  if (columnCtx) {
+    const builtinColumns = Object.entries(BUILTIN_COLUMN_LABELS).map(([key, label]) => ({
+      key,
+      label,
+      visible: columnCtx.builtinVisibility[key] !== false,
+    }))
+
+    const activeColumnIds = new Set(columnCtx.activityColumns.map((ac) => ac.columnId))
+    const customColumns = columnCtx.allDefinitions
+      .filter((d) => activeColumnIds.has(d._id))
+      .map((d) => ({
+        name: d.name,
+        type: d.type,
+        formula: d.formula
+          ? `${d.formula.left} ${d.formula.operator} ${d.formula.right}`
+          : undefined,
+      }))
+
+    base.columns = { builtin: builtinColumns, custom: customColumns }
+  }
+
+  return base
 }
 
 interface ToolMeta {
@@ -74,6 +148,11 @@ const TOOL_META: Record<string, ToolMeta> = {
   splitLap: { label: m.chat_tool_split_lap(), icon: Scissors, requiresApproval: true },
   mergeLaps: { label: m.chat_tool_merge_laps(), icon: Merge, requiresApproval: true },
   getLapDetails: { label: m.chat_tool_get_details(), icon: MapPin, requiresApproval: false },
+  getColumns: { label: m.chat_tool_get_columns(), icon: Columns3, requiresApproval: false },
+  toggleBuiltinColumn: { label: m.chat_tool_toggle_column(), icon: Eye, requiresApproval: false },
+  addCustomColumn: { label: m.chat_tool_add_column(), icon: Plus, requiresApproval: true },
+  removeCustomColumn: { label: m.chat_tool_remove_column(), icon: Trash2, requiresApproval: true },
+  setCustomColumnValue: { label: m.chat_tool_set_value(), icon: PenLine, requiresApproval: true },
 }
 
 /** Build a short human-readable description of what a tool call will do */
@@ -96,17 +175,88 @@ function describeToolCall(name: string, args: Record<string, unknown>, laps: Lap
       const lap2 = findLap(args.lapId2 as string)
       return m.chat_desc_merge_laps({ lap1: lap1?.name ?? 'lap', lap2: lap2?.name ?? 'lap' })
     }
+    case 'toggleBuiltinColumn': {
+      const label = BUILTIN_COLUMN_LABELS[args.columnKey as string] ?? (args.columnKey as string)
+      return args.visible
+        ? m.chat_desc_toggle_column_show({ name: label })
+        : m.chat_desc_toggle_column_hide({ name: label })
+    }
+    case 'addCustomColumn': {
+      const colType = args.type as string
+      if (colType === 'computed' && args.formula) {
+        const f = args.formula as { operator: string; left: string; right: string }
+        const opSymbols: Record<string, string> = {
+          divide: '/',
+          divideby: '/',
+          multiply: '×',
+          add: '+',
+          subtract: '−',
+        }
+        const resolveLabel = (op: string) => BUILTIN_COLUMN_LABELS[op] ?? op
+        const leftLabel = resolveLabel(f.left)
+        const rightLabel = resolveLabel(f.right)
+        const formulaStr =
+          f.operator === 'divideby'
+            ? `${rightLabel} ${opSymbols[f.operator]} ${leftLabel}`
+            : `${leftLabel} ${opSymbols[f.operator] ?? '?'} ${rightLabel}`
+        return m.chat_desc_add_column_computed({
+          name: args.name as string,
+          formula: formulaStr,
+        })
+      }
+      return m.chat_desc_add_column_manual({ name: args.name as string })
+    }
+    case 'removeCustomColumn':
+      return m.chat_desc_remove_column({ name: args.columnName as string })
+    case 'setCustomColumnValue': {
+      const lap = findLap(args.lapId as string)
+      return m.chat_desc_set_value({
+        column: args.columnName as string,
+        value: String(args.value),
+        lap: lap?.name ?? 'lap',
+      })
+    }
     default:
       return name
   }
 }
 
-function executeTool(
+/** Normalize a formula operand from AI (which may use labels, wrong case, etc.) to a canonical stat key or manual column ID */
+function normalizeOperand(operand: string, allDefinitions: ColumnDefinition[]): string {
+  // Direct match against LapStats keys (case-sensitive fast path)
+  const statKeys = BUILTIN_OPERANDS.map((o) => o.key as string)
+  if (statKeys.includes(operand)) return operand
+
+  // Case-insensitive match against stat keys
+  const lower = operand.toLowerCase()
+  const keyMatch = BUILTIN_OPERANDS.find((o) => (o.key as string).toLowerCase() === lower)
+  if (keyMatch) return keyMatch.key as string
+
+  // Match against human-readable labels (case-insensitive, ignoring whitespace)
+  const stripped = lower.replace(/\s+/g, '')
+  const labelMatch = BUILTIN_OPERANDS.find(
+    (o) => o.label.toLowerCase().replace(/\s+/g, '') === stripped,
+  )
+  if (labelMatch) return labelMatch.key as string
+
+  // Match against manual column name → return its Convex ID (used by evaluateFormula)
+  const colByName = allDefinitions.find(
+    (d) => d.type === 'manual' && d.name.toLowerCase() === lower,
+  )
+  if (colByName) return colByName._id as string
+
+  // Fallback: return as-is (will likely fail to resolve in evaluateFormula)
+  return operand
+}
+
+async function executeTool(
   toolName: string,
   args: Record<string, unknown>,
   laps: LapHandle[],
   callbacks: MutationCallbacks,
-): string {
+  columnCtx?: ColumnContext,
+  columnCallbacks?: ColumnCallbacks,
+): Promise<string> {
   switch (toolName) {
     case 'renameActivity': {
       const name = args.name as string
@@ -155,6 +305,85 @@ function executeTool(
       })
       return details.length > 0 ? details.join('\n\n') : 'No laps in this activity.'
     }
+
+    // ── Column tools ──
+
+    case 'getColumns': {
+      if (!columnCtx) return 'Column management is not available for this activity.'
+      const activeIds = new Set(columnCtx.activityColumns.map((ac) => ac.columnId))
+      const builtinLines = Object.entries(BUILTIN_COLUMN_LABELS).map(
+        ([key, label]) =>
+          `  ${columnCtx.builtinVisibility[key] !== false ? '✓' : '✗'} ${label} (${key})`,
+      )
+      const customLines = columnCtx.allDefinitions
+        .filter((d) => activeIds.has(d._id))
+        .map((d) => {
+          const detail =
+            d.type === 'computed' && d.formula
+              ? ` [${d.formula.left} ${d.formula.operator} ${d.formula.right}]`
+              : ` [manual]`
+          return `  • ${d.name}${detail}`
+        })
+      const lines = ['Built-in columns:', ...builtinLines]
+      if (customLines.length > 0) {
+        lines.push('', 'Custom columns on this activity:', ...customLines)
+      } else {
+        lines.push('', 'No custom columns on this activity.')
+      }
+      return lines.join('\n')
+    }
+
+    case 'toggleBuiltinColumn': {
+      if (!columnCallbacks) return 'Column management is not available.'
+      const { columnKey, visible } = args as { columnKey: string; visible: boolean }
+      columnCallbacks.onToggleBuiltinColumn(columnKey, visible)
+      const label = BUILTIN_COLUMN_LABELS[columnKey] ?? columnKey
+      return `Column "${label}" is now ${visible ? 'visible' : 'hidden'}.`
+    }
+
+    case 'addCustomColumn': {
+      if (!columnCallbacks || !columnCtx) return 'Column management is not available.'
+      const { name, type, formula } = args as {
+        name: string
+        type: 'manual' | 'computed'
+        formula?: { operator: string; left: string; right: string }
+      }
+      // Normalize formula operands so AI labels ("Distance") map to stat keys ("distance")
+      const normalizedFormula: Formula | undefined =
+        formula && type === 'computed'
+          ? {
+              operator: formula.operator as FormulaOperator,
+              left: normalizeOperand(formula.left, columnCtx.allDefinitions),
+              right: normalizeOperand(formula.right, columnCtx.allDefinitions),
+            }
+          : undefined
+      await columnCallbacks.onAddCustomColumn({
+        name,
+        type,
+        formula: normalizedFormula,
+      })
+      return `Custom ${type} column "${name}" created and added to this activity.`
+    }
+
+    case 'removeCustomColumn': {
+      if (!columnCallbacks) return 'Column management is not available.'
+      const { columnName } = args as { columnName: string }
+      await columnCallbacks.onRemoveCustomColumn(columnName)
+      return `Custom column "${columnName}" removed from this activity.`
+    }
+
+    case 'setCustomColumnValue': {
+      if (!columnCallbacks) return 'Column management is not available.'
+      const { columnName, lapId, value } = args as {
+        columnName: string
+        lapId: string
+        value: number
+      }
+      const lap = laps.find((l) => l.id === lapId)
+      await columnCallbacks.onSetCustomColumnValue(columnName, lapId, value)
+      return `Set "${columnName}" = ${value} for lap "${lap?.name ?? lapId}".`
+    }
+
     default:
       return `Unknown tool: ${toolName}`
   }
@@ -206,6 +435,8 @@ export function ActivityChat({
   onRenameLap,
   onSplitLap,
   onMergeLaps,
+  columnContext,
+  columnCallbacks,
 }: ActivityChatProps) {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -220,6 +451,8 @@ export function ActivityChat({
     onSplitLap,
     onMergeLaps,
   })
+  const columnCtxRef = useRef(columnContext)
+  const columnCbRef = useRef(columnCallbacks)
 
   useEffect(() => {
     actDocRef.current = actDoc
@@ -230,14 +463,29 @@ export function ActivityChat({
       onSplitLap,
       onMergeLaps,
     }
-  }, [actDoc, laps, onRenameActivity, onRenameLap, onSplitLap, onMergeLaps])
+    columnCtxRef.current = columnContext
+    columnCbRef.current = columnCallbacks
+  }, [
+    actDoc,
+    laps,
+    onRenameActivity,
+    onRenameLap,
+    onSplitLap,
+    onMergeLaps,
+    columnContext,
+    columnCallbacks,
+  ])
 
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: '/api/chat',
         body: () => ({
-          activityContext: buildActivityContext(actDocRef.current, lapsRef.current),
+          activityContext: buildActivityContext(
+            actDocRef.current,
+            lapsRef.current,
+            columnCtxRef.current,
+          ),
         }),
       }),
     [],
@@ -266,37 +514,46 @@ export function ActivityChat({
 
       processedToolCalls.current.add(part.toolCallId)
 
-      try {
-        const result = executeTool(
-          name,
-          (part as { input: Record<string, unknown> }).input ?? {},
-          lapsRef.current,
-          callbacksRef.current,
-        )
+      const input = (part as { input: Record<string, unknown> }).input ?? {}
+      const toolCallId = part.toolCallId
 
-        addToolOutput({
-          tool: name,
-          toolCallId: part.toolCallId,
-          output: result,
-        })
-      } catch (err) {
-        addToolOutput({
-          tool: name,
-          toolCallId: part.toolCallId,
-          state: 'output-error',
-          errorText: err instanceof Error ? err.message : 'Operation failed',
-        })
-      }
+      executeTool(
+        name,
+        input,
+        lapsRef.current,
+        callbacksRef.current,
+        columnCtxRef.current,
+        columnCbRef.current,
+      ).then(
+        (result) => {
+          addToolOutput({ tool: name, toolCallId, output: result })
+        },
+        (err) => {
+          addToolOutput({
+            tool: name,
+            toolCallId,
+            state: 'output-error',
+            errorText: err instanceof Error ? err.message : 'Operation failed',
+          })
+        },
+      )
     }
   }, [messages, addToolOutput])
 
   const handleApproveTool = useCallback(
-    (toolCallId: string, toolName: string, input: Record<string, unknown>) => {
+    async (toolCallId: string, toolName: string, input: Record<string, unknown>) => {
       if (processedToolCalls.current.has(toolCallId)) return
       processedToolCalls.current.add(toolCallId)
 
       try {
-        const result = executeTool(toolName, input, lapsRef.current, callbacksRef.current)
+        const result = await executeTool(
+          toolName,
+          input,
+          lapsRef.current,
+          callbacksRef.current,
+          columnCtxRef.current,
+          columnCbRef.current,
+        )
         addToolOutput({ tool: toolName, toolCallId, output: result })
       } catch (err) {
         addToolOutput({
