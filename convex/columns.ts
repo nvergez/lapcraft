@@ -1,5 +1,6 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
+import { PLAN_LIMITS } from './credits'
 
 // ─── Column Definitions ───
 
@@ -159,6 +160,26 @@ export const addColumnToActivity = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw new Error('Not authenticated')
+
+    // Enforce plan column-per-activity limit
+    const profile = await ctx.db
+      .query('userProfiles')
+      .withIndex('by_tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
+      .unique()
+    const plan = profile?.plan ?? 'free'
+    const limit = PLAN_LIMITS[plan].maxCustomColumnsPerActivity
+    if (limit !== null) {
+      const existing = await ctx.db
+        .query('activityColumns')
+        .withIndex('by_tokenIdentifier_and_activityId', (q) =>
+          q.eq('tokenIdentifier', identity.tokenIdentifier).eq('activityId', args.activityId),
+        )
+        .take(limit + 1)
+      if (existing.length >= limit) {
+        throw new Error(`COLUMN_LIMIT_REACHED:${limit}`)
+      }
+    }
+
     return await ctx.db.insert('activityColumns', {
       tokenIdentifier: identity.tokenIdentifier,
       activityId: args.activityId,
@@ -270,5 +291,33 @@ export const clearValue = mutation({
     if (match) {
       await ctx.db.delete(match._id)
     }
+  },
+})
+
+/** Check whether the current user can add more custom columns to a given activity. */
+export const checkColumnLimit = query({
+  args: { activityId: v.id('activities') },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return null
+
+    const profile = await ctx.db
+      .query('userProfiles')
+      .withIndex('by_tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
+      .unique()
+
+    const plan = profile?.plan ?? 'free'
+    const max = PLAN_LIMITS[plan].maxCustomColumnsPerActivity
+
+    if (max === null) return { allowed: true, current: 0, max: null }
+
+    const existing = await ctx.db
+      .query('activityColumns')
+      .withIndex('by_tokenIdentifier_and_activityId', (q) =>
+        q.eq('tokenIdentifier', identity.tokenIdentifier).eq('activityId', args.activityId),
+      )
+      .take(max + 1)
+
+    return { allowed: existing.length < max, current: existing.length, max }
   },
 })

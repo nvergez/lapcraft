@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
-import { useMutation } from 'convex/react'
+import { useMutation, useQuery } from 'convex/react'
+import { Link } from '@tanstack/react-router'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import type {
@@ -43,7 +44,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '~/components/ui/alert-dialog'
-import { Plus, Trash2, Calculator, PenLine, Share2, Pencil, Check, X } from 'lucide-react'
+import { Plus, Trash2, Calculator, PenLine, Share2, Pencil, Check, X, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import * as m from '~/paraglide/messages.js'
 
@@ -104,11 +105,15 @@ export function CustomizeColumnsDialog({
   const [editLeft, setEditLeft] = useState('')
   const [editRight, setEditRight] = useState('')
 
+  const columnLimit = useQuery(api.columns.checkColumnLimit, { activityId })
+
   const createDefinition = useMutation(api.columns.createDefinition)
   const deleteDefinition = useMutation(api.columns.deleteDefinition)
   const updateDefinition = useMutation(api.columns.updateDefinition)
   const addToActivity = useMutation(api.columns.addColumnToActivity)
   const removeFromActivity = useMutation(api.columns.removeColumnFromActivity)
+
+  const atColumnLimit = columnLimit !== null && columnLimit !== undefined && !columnLimit.allowed
 
   // Columns currently in this activity
   const activeColumnIds = useMemo(
@@ -481,12 +486,33 @@ export function CustomizeColumnsDialog({
                     <Calculator className="size-3.5 text-muted-foreground shrink-0" />
                   )}
                   <span className="text-sm flex-1 truncate">{def.name}</span>
-                  <Button size="sm" variant="ghost" onClick={() => handleToggleColumn(def)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleToggleColumn(def)}
+                    disabled={atColumnLimit}
+                  >
                     <Plus className="size-3.5" />
                     {m.common_add()}
                   </Button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Plan limit banner */}
+          {atColumnLimit && (
+            <div className="flex items-center gap-2 rounded-md bg-muted/60 px-3 py-2 border-t border-border/60">
+              <Lock className="size-3.5 text-muted-foreground shrink-0" />
+              <p className="text-xs text-muted-foreground flex-1">
+                {m.limit_columns_reached({ max: String(columnLimit.max) })}
+              </p>
+              <Link
+                to="/pricing"
+                className="text-xs font-medium text-primary hover:underline shrink-0"
+              >
+                {m.limit_upgrade()}
+              </Link>
             </div>
           )}
 
@@ -498,6 +524,7 @@ export function CustomizeColumnsDialog({
                 variant="outline"
                 className="flex-1"
                 onClick={() => setCreateMode('manual')}
+                disabled={atColumnLimit}
               >
                 <PenLine className="size-3.5" />
                 {m.columns_manual()}
@@ -507,6 +534,7 @@ export function CustomizeColumnsDialog({
                 variant="outline"
                 className="flex-1"
                 onClick={() => setCreateMode('computed')}
+                disabled={atColumnLimit}
               >
                 <Calculator className="size-3.5" />
                 {m.columns_computed()}

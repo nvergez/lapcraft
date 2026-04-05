@@ -3,6 +3,7 @@ import { ConvexBetterAuthProvider } from '@convex-dev/better-auth/react'
 import type { ConvexQueryClient } from '@convex-dev/react-query'
 import type { QueryClient } from '@tanstack/react-query'
 import { QueryClientProvider } from '@tanstack/react-query'
+import { useConvexMutation } from '@convex-dev/react-query'
 import {
   HeadContent,
   Link,
@@ -18,6 +19,8 @@ import { NotFound } from '~/components/not-found'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '~/components/ui/sidebar'
 import { Toaster } from '~/components/ui/sonner'
 import { TooltipProvider } from '~/components/ui/tooltip'
+import { useEffect, useRef } from 'react'
+import { api } from '../../convex/_generated/api'
 import { authClient } from '~/lib/auth-client'
 import { getToken } from '~/lib/auth-server'
 import appCss from '~/styles/app.css?url'
@@ -88,9 +91,18 @@ function RootComponent() {
 function RootBody() {
   const context = useRouteContext({ from: Route.id })
   const { data: sessionData, isPending } = authClient.useSession()
+  const ensureProfile = useConvexMutation(api.credits.ensureProfile)
+  const profileEnsured = useRef(false)
 
   // Use server-side auth during pending, client-side after resolved
   const isAuthenticated = isPending ? context.isAuthenticated : !!sessionData?.session
+
+  useEffect(() => {
+    if (isAuthenticated && !profileEnsured.current) {
+      profileEnsured.current = true
+      ensureProfile({}).catch(console.error)
+    }
+  }, [isAuthenticated, ensureProfile])
 
   return (
     <body className="grain relative min-h-screen">

@@ -79,4 +79,30 @@ export default defineSchema({
       'lapId',
     ])
     .index('by_columnId', ['columnId']),
+
+  userProfiles: defineTable({
+    tokenIdentifier: v.string(),
+    plan: v.union(v.literal('free'), v.literal('premium')),
+    stripeCustomerId: v.optional(v.string()),
+    stripeSubscriptionId: v.optional(v.string()),
+    planCredits: v.number(),
+    purchasedCredits: v.number(),
+  })
+    .index('by_tokenIdentifier', ['tokenIdentifier'])
+    .index('by_stripeCustomerId', ['stripeCustomerId']),
+
+  creditTransactions: defineTable({
+    tokenIdentifier: v.string(),
+    type: v.union(
+      v.literal('plan_grant'),
+      v.literal('purchase'),
+      v.literal('usage'),
+      v.literal('plan_reset'),
+    ),
+    amount: v.number(),
+    pool: v.union(v.literal('plan'), v.literal('purchased')),
+    balanceAfter: v.number(),
+    metadata: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index('by_tokenIdentifier', ['tokenIdentifier']),
 })

@@ -7,6 +7,9 @@ import {
   lastAssistantMessageIsCompleteWithToolCalls,
 } from 'ai'
 import type { UIMessage } from 'ai'
+import { useQuery } from '@tanstack/react-query'
+import { convexQuery } from '@convex-dev/react-query'
+import { api } from '../../convex/_generated/api'
 import { Button } from '~/components/ui/button'
 import {
   Send,
@@ -25,6 +28,7 @@ import {
   Trash2,
   PenLine,
   Columns3,
+  Zap,
 } from 'lucide-react'
 import type { ActivityDocument, LapHandle } from '~/utils/dom-model'
 import type {
@@ -438,6 +442,9 @@ export function ActivityChat({
   columnContext,
   columnCallbacks,
 }: ActivityChatProps) {
+  const { data: balance } = useQuery(convexQuery(api.credits.getBalance, {}))
+  const hasCredits = !balance || balance.total > 0 // optimistic: allow if balance not loaded yet
+
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -634,9 +641,25 @@ export function ActivityChat({
             <span className="text-sm font-semibold tracking-tight">{m.chat_title()}</span>
           </div>
         </div>
-        <Button variant="ghost" size="icon-xs" onClick={onClose}>
-          <X className="size-3.5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          {balance && (
+            <span
+              className={`flex items-center gap-1 text-[11px] font-medium tabular-nums ${
+                balance.total <= 0
+                  ? 'text-destructive'
+                  : balance.total <= 5
+                    ? 'text-amber-500'
+                    : 'text-muted-foreground/60'
+              }`}
+            >
+              <Zap className="size-3" />
+              {balance.total}
+            </span>
+          )}
+          <Button variant="ghost" size="icon-xs" onClick={onClose}>
+            <X className="size-3.5" />
+          </Button>
+        </div>
       </div>
 
       {/* Messages area */}
@@ -674,41 +697,56 @@ export function ActivityChat({
 
       {/* Input */}
       <div className="border-t border-border/60 bg-card/30">
-        <form onSubmit={handleSubmit} className="px-3 py-2.5">
-          <div className="flex items-end gap-2 rounded-xl border border-border/60 bg-background/80 px-3 py-2 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10 transition-all">
-            <textarea
-              ref={inputRef}
-              className="flex-1 resize-none bg-transparent text-sm placeholder:text-muted-foreground/40 outline-none min-h-[24px] max-h-[120px] py-0.5 leading-relaxed"
-              placeholder={m.chat_placeholder()}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSubmit(e)
-                }
-              }}
-              disabled={isLoading}
-              rows={1}
-            />
-            <Button
-              type="submit"
-              size="icon-xs"
-              variant={input.trim() ? 'default' : 'ghost'}
-              disabled={!input.trim() || isLoading}
-              className="shrink-0 transition-all"
+        {hasCredits ? (
+          <form onSubmit={handleSubmit} className="px-3 py-2.5">
+            <div className="flex items-end gap-2 rounded-xl border border-border/60 bg-background/80 px-3 py-2 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10 transition-all">
+              <textarea
+                ref={inputRef}
+                className="flex-1 resize-none bg-transparent text-sm placeholder:text-muted-foreground/40 outline-none min-h-[24px] max-h-[120px] py-0.5 leading-relaxed"
+                placeholder={m.chat_placeholder()}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleSubmit(e)
+                  }
+                }}
+                disabled={isLoading}
+                rows={1}
+              />
+              <Button
+                type="submit"
+                size="icon-xs"
+                variant={input.trim() ? 'default' : 'ghost'}
+                disabled={!input.trim() || isLoading}
+                className="shrink-0 transition-all"
+              >
+                {isLoading ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : (
+                  <Send className="size-3" />
+                )}
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground/40 text-center mt-1.5 select-none">
+              {m.chat_undo_hint()} <kbd className="font-mono text-muted-foreground/50">Ctrl+Z</kbd>
+            </p>
+          </form>
+        ) : (
+          <div className="px-3 py-3 text-center">
+            <div className="flex items-center justify-center gap-1.5 text-xs text-destructive mb-2">
+              <Zap className="size-3" />
+              <span className="font-medium">No credits remaining</span>
+            </div>
+            <a
+              href="/pricing"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              {isLoading ? (
-                <Loader2 className="size-3 animate-spin" />
-              ) : (
-                <Send className="size-3" />
-              )}
-            </Button>
+              Get more credits
+            </a>
           </div>
-          <p className="text-[10px] text-muted-foreground/40 text-center mt-1.5 select-none">
-            {m.chat_undo_hint()} <kbd className="font-mono text-muted-foreground/50">Ctrl+Z</kbd>
-          </p>
-        </form>
+        )}
       </div>
     </div>
   )
