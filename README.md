@@ -107,6 +107,16 @@ pnpm exec convex env set STRAVA_CLIENT_ID <your-client-id>
 pnpm exec convex env set STRAVA_CLIENT_SECRET <your-client-secret>
 ```
 
+## Map tiles
+
+The activity map loads CARTO raster tiles (Voyager in light mode, Dark Matter in dark mode). Request a basemaps API key at [carto.com/basemaps/apikey](https://carto.com/basemaps/apikey) and set it in `.env.local`:
+
+```bash
+VITE_CARTO_API_KEY=your-carto-basemaps-key
+```
+
+The key is public: Vite inlines it into the client, and each tile URL gets `?key=`. If the variable is unset or blank, the map still requests the same tile URLs without that parameter.
+
 ## Scripts
 
 | Command               | Description                                        |
