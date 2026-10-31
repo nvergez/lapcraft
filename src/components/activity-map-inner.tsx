@@ -5,8 +5,12 @@ import type { LapTrack } from './activity-map'
 import { getLapColor } from '~/utils/lap-colors'
 import { useDarkMode } from '~/hooks/use-dark-mode'
 
-const TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-const TILE_DARK = 'https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png'
+// CARTO raster tiles require ?key= (https://carto.com/basemaps/). When the public
+// env var is unset, request the same URLs without it.
+const cartoApiKey = import.meta.env.VITE_CARTO_API_KEY?.trim()
+const cartoKeyQuery = cartoApiKey ? `?key=${encodeURIComponent(cartoApiKey)}` : ''
+const TILE_LIGHT = `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png${cartoKeyQuery}`
+const TILE_DARK = `https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png${cartoKeyQuery}`
 const ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
 const FIT_OPTIONS = { padding: [40, 40] as [number, number], maxZoom: 16 }
