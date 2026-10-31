@@ -5,7 +5,10 @@ import { routeTree } from './routeTree.gen'
 import { DefaultCatchBoundary } from './components/default-catch-boundary'
 import { NotFound } from './components/not-found'
 import { getClientConvexUrl } from './lib/convex-env'
+import { installUrlPatternPolyfill } from './lib/url-pattern-polyfill'
 import { deLocalizeUrl, localizeUrl } from './paraglide/runtime.js'
+
+installUrlPatternPolyfill()
 
 export function getRouter() {
   const convexQueryClient = new ConvexQueryClient(getClientConvexUrl(), {

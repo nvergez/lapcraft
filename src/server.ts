@@ -1,5 +1,7 @@
 import { initSentryServer } from './lib/sentry-server'
+import { installUrlPatternPolyfill } from './lib/url-pattern-polyfill'
 
+installUrlPatternPolyfill()
 initSentryServer()
 
 import { paraglideMiddleware } from './paraglide/server.js'

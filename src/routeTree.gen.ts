@@ -9,23 +9,23 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as PricingRouteImport } from './routes/pricing'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as ActivitiesSlugRouteImport } from './routes/activities/$slug'
+import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as CompareIndexRouteImport } from './routes/compare/index'
 import { Route as StravaCallbackRouteImport } from './routes/strava/callback'
-import { Route as ApiHealthRouteImport } from './routes/api/health'
-import { Route as ApiChatRouteImport } from './routes/api/chat'
-import { Route as ActivitiesSlugRouteImport } from './routes/activities/$slug'
-import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
-import { Route as ApiStripePortalRouteImport } from './routes/api/stripe/portal'
-import { Route as ApiStripeCheckoutRouteImport } from './routes/api/stripe/checkout'
-import { Route as ApiStripeAdminPlanRouteImport } from './routes/api/stripe/admin-plan'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiStripeAdminPlanRouteImport } from './routes/api/stripe/admin-plan'
+import { Route as ApiStripeCheckoutRouteImport } from './routes/api/stripe/checkout'
+import { Route as ApiStripePortalRouteImport } from './routes/api/stripe/portal'
+import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
 
-const PricingRoute = PricingRouteImport.update({
-  id: '/pricing',
-  path: '/pricing',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -33,9 +33,24 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ActivitiesSlugRoute = ActivitiesSlugRouteImport.update({
+  id: '/activities/$slug',
+  path: '/activities/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CompareIndexRoute = CompareIndexRouteImport.update({
@@ -48,34 +63,9 @@ const StravaCallbackRoute = StravaCallbackRouteImport.update({
   path: '/strava/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiHealthRoute = ApiHealthRouteImport.update({
-  id: '/api/health',
-  path: '/api/health',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiChatRoute = ApiChatRouteImport.update({
-  id: '/api/chat',
-  path: '/api/chat',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ActivitiesSlugRoute = ActivitiesSlugRouteImport.update({
-  id: '/activities/$slug',
-  path: '/activities/$slug',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
-  id: '/api/stripe/webhook',
-  path: '/api/stripe/webhook',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiStripePortalRoute = ApiStripePortalRouteImport.update({
-  id: '/api/stripe/portal',
-  path: '/api/stripe/portal',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiStripeCheckoutRoute = ApiStripeCheckoutRouteImport.update({
-  id: '/api/stripe/checkout',
-  path: '/api/stripe/checkout',
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiStripeAdminPlanRoute = ApiStripeAdminPlanRouteImport.update({
@@ -83,9 +73,19 @@ const ApiStripeAdminPlanRoute = ApiStripeAdminPlanRouteImport.update({
   path: '/api/stripe/admin-plan',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
-  id: '/api/auth/$',
-  path: '/api/auth/$',
+const ApiStripeCheckoutRoute = ApiStripeCheckoutRouteImport.update({
+  id: '/api/stripe/checkout',
+  path: '/api/stripe/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStripePortalRoute = ApiStripePortalRouteImport.update({
+  id: '/api/stripe/portal',
+  path: '/api/stripe/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
+  id: '/api/stripe/webhook',
+  path: '/api/stripe/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -201,11 +201,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/pricing': {
-      id: '/pricing'
-      path: '/pricing'
-      fullPath: '/pricing'
-      preLoaderRoute: typeof PricingRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -215,11 +215,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/activities/$slug': {
+      id: '/activities/$slug'
+      path: '/activities/$slug'
+      fullPath: '/activities/$slug'
+      preLoaderRoute: typeof ActivitiesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/compare/': {
@@ -236,46 +257,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StravaCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/health': {
-      id: '/api/health'
-      path: '/api/health'
-      fullPath: '/api/health'
-      preLoaderRoute: typeof ApiHealthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/chat': {
-      id: '/api/chat'
-      path: '/api/chat'
-      fullPath: '/api/chat'
-      preLoaderRoute: typeof ApiChatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/activities/$slug': {
-      id: '/activities/$slug'
-      path: '/activities/$slug'
-      fullPath: '/activities/$slug'
-      preLoaderRoute: typeof ActivitiesSlugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/stripe/webhook': {
-      id: '/api/stripe/webhook'
-      path: '/api/stripe/webhook'
-      fullPath: '/api/stripe/webhook'
-      preLoaderRoute: typeof ApiStripeWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/stripe/portal': {
-      id: '/api/stripe/portal'
-      path: '/api/stripe/portal'
-      fullPath: '/api/stripe/portal'
-      preLoaderRoute: typeof ApiStripePortalRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/stripe/checkout': {
-      id: '/api/stripe/checkout'
-      path: '/api/stripe/checkout'
-      fullPath: '/api/stripe/checkout'
-      preLoaderRoute: typeof ApiStripeCheckoutRouteImport
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/stripe/admin-plan': {
@@ -285,11 +271,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStripeAdminPlanRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/auth/$': {
-      id: '/api/auth/$'
-      path: '/api/auth/$'
-      fullPath: '/api/auth/$'
-      preLoaderRoute: typeof ApiAuthSplatRouteImport
+    '/api/stripe/checkout': {
+      id: '/api/stripe/checkout'
+      path: '/api/stripe/checkout'
+      fullPath: '/api/stripe/checkout'
+      preLoaderRoute: typeof ApiStripeCheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/stripe/portal': {
+      id: '/api/stripe/portal'
+      path: '/api/stripe/portal'
+      fullPath: '/api/stripe/portal'
+      preLoaderRoute: typeof ApiStripePortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/stripe/webhook': {
+      id: '/api/stripe/webhook'
+      path: '/api/stripe/webhook'
+      fullPath: '/api/stripe/webhook'
+      preLoaderRoute: typeof ApiStripeWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
